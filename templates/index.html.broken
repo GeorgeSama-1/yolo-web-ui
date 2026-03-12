@@ -1,0 +1,2363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>绝缘子检测系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'WenQuanYi Micro Hei', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* 左侧：历史记录 */
+        .left-panel {
+            width: 250px;
+            background: #f8f9fa;
+            border-right: 2px solid #e9ecef;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .panel-title {
+            padding: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #e9ecef;
+            background: white;
+            flex-shrink: 0;
+        }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .history-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .history-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+
+        .history-item.active {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .history-item.status-pass {
+            border-left: 4px solid #28a745;
+        }
+
+        .history-item.status-fail {
+            border-left: 4px solid #dc3545;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            color: white;
+            z-index: 5;
+        }
+
+        .status-badge.pass {
+            background: #28a745;
+        }
+
+        .status-badge.fail {
+            background: #dc3545;
+        }
+
+        .history-actions {
+            position: absolute;
+            top: 10px;
+            right: 35px;
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+
+        .history-action-btn {
+            width: 24px;
+            height: 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .btn-mark-pass {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-mark-pass:hover {
+            background: #218838;
+        }
+
+        .btn-mark-fail {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-mark-fail:hover {
+            background: #c82333;
+        }
+
+        .btn-delete {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #5a6268;
+        }
+
+        .history-checkbox {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            z-index: 5;
+        }
+
+        .history-thumb {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .history-info {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .history-count {
+            font-size: 14px;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        /* 中间：图片展示 */
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f8f9fa;
+            position: relative;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 15px;
+            background: white;
+            border-bottom: 2px solid #e9ecef;
+            flex-shrink: 0;
+        }
+
+        .toolbar-left, .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .image-name {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .tool-btn {
+            padding: 8px 16px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .tool-btn:hover {
+            background: #f0f4ff;
+            border-color: #667eea;
+        }
+
+        .zoom-display {
+            padding: 8px 16px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #495057;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .image-container {
+            flex: 1;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        .image-container.empty {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+        }
+
+        .image-container.empty::after {
+            content: '暂无图片';
+            font-size: 24px;
+            color: #adb5bd;
+        }
+
+        .image-container.grabbing {
+            cursor: grabbing;
+        }
+
+        .image-wrapper {
+            position: relative;
+            transform-origin: center center;
+            transition: transform 0.1s ease-out;
+        }
+
+        .image-wrapper.dragging {
+            transition: none;
+        }
+
+        #mainCanvas {
+            display: block;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 5;
+        }
+
+        .upload-overlay.hidden {
+            display: none;
+        }
+
+        .upload-btn {
+            padding: 20px 40px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .upload-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        /* 右侧：文件上传和统计 */
+        .right-panel {
+            width: 320px;
+            background: #f8f9fa;
+            border-left: 2px solid #e9ecef;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            overflow-y: auto;
+        }
+
+        .upload-section {
+            padding: 15px;
+            border-bottom: 2px solid #e9ecef;
+            background: white;
+            flex-shrink: 0;
+        }
+
+        .upload-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .upload-btn-small {
+            flex: 1;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .upload-btn-small:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .file-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            min-height: 200px;
+        }
+
+        .file-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            position: relative;
+            padding-right: 40px;
+        }
+
+        .file-checkbox {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .file-item.pending {
+            border-left: 3px solid #ffc107;
+        }
+
+        .file-item.processing {
+            border-left: 3px solid #667eea;
+            background: #f0f4ff;
+        }
+
+        .file-item.completed {
+            border-left: 3px solid #28a745;
+        }
+
+        .file-item.error {
+            border-left: 3px solid #dc3545;
+            background: #fff5f5;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+
+        .file-status {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .file-count {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .stats-container {
+            padding: 15px;
+            border-top: 2px solid #e9ecef;
+            background: white;
+            flex-shrink: 0;
+        }
+
+        .stat-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            color: #1f2937;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .export-section {
+            padding: 15px;
+            border-top: 2px solid #e9ecef;
+            flex-shrink: 0;
+        }
+
+        .batch-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn-small {
+            flex: 1;
+            padding: 8px;
+            font-size: 13px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #218838;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #5a6268;
+        }
+
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* 加载动画 */
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        /* 隐藏的文件输入 */
+        #fileInput, #folderInput {
+            display: none;
+        }
+
+        /* 模型选择器样式 */
+        .model-selector {
+            background: white;
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+            flex-shrink: 0;
+        }
+
+        .model-selector-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .model-select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .model-select:hover {
+            border-color: #667eea;
+        }
+
+        .model-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .model-status {
+            font-size: 12px;
+            color: #28a745;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .model-status.error {
+            color: #dc3545;
+        }
+
+        .model-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #28a745;
+        }
+
+        .model-status.error .model-status-dot {
+            background: #dc3545;
+        }
+
+        .model-loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px;
+            font-size: 13px;
+            color: #667eea;
+        }
+
+        .model-loading.active {
+            display: flex;
+        }
+
+        .model-loading-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e9ecef;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* 文件夹分组样式 */
+        .folder-group {
+            margin-bottom: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: white;
+            overflow: hidden;
+        }
+
+        .folder-header {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 1px solid #dee2e6;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s;
+        }
+
+        .folder-header:hover {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+        }
+
+        .folder-header.expanded {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .folder-toggle {
+            margin-right: 8px;
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+
+        .folder-header.expanded .folder-toggle {
+            transform: rotate(90deg);
+        }
+
+        /* 头部操作按钮样式 */
+        .header-action-btn {
+            padding: 5px 12px;
+            font-size: 13px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            background: #f8f9fa;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .header-action-btn:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+        }
+
+        .header-action-btn.delete-btn {
+            flex: 1;
+            color: #dc3545;
+            border-color: #ffebee;
+        }
+
+        .header-action-btn.delete-btn:hover {
+            background: #ffebee;
+            border-color: #dc3545;
+        }
+
+        /* 中间图片下方操作按钮样式 */
+        .current-image-actions {
+            display: none;  /* 默认隐藏 */
+            padding: 12px 16px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+            gap: 12px;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            position: relative;
+            z-index: 20;
+        }
+
+        .upload-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 5;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 4px 12px;
+            pointer-events: auto;
+        }
+
+        .upload-overlay.hidden {
+            display: none;
+            pointer-events: none;
+        }
+
+        .current-image-actions .mark-btn {
+            padding: 8px 16px;
+            font-size: 13px;
+            border-radius: 6px;
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .current-image-actions .mark-pass {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .current-image-actions .mark-pass:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .current-image-actions .mark-fail {
+            background: #dc3545;
+        }
+
+        .current-image-actions .mark-fail:hover {
+            background: #c82333;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+        }
+
+        .folder-name {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .folder-count {
+            font-size: 12px;
+            color: #6c757d;
+            margin-left: 8px;
+        }
+
+        .folder-header.expanded .folder-count {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .folder-items {
+            display: none;
+            padding: 8px;
+            background: #f8f9fa;
+        }
+
+        .folder-items.expanded {
+            display: block;
+        }
+
+        .history-item.in-folder {
+            border: none;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: white;
+        }
+
+        .history-item.in-folder:last-child {
+            margin-bottom: 0;
+        }
+
+        /* 头部操作按钮样式 */
+        .header-action-btn {
+            padding: 6px 10px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #495057;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .header-action-btn:hover {
+            background: #f8f9fa;
+            border-color: #adb5bd;
+        }
+
+        .header-action-btn.delete-btn {
+            color: #dc3545;
+            font-weight: 500;
+        }
+
+                        primary: '#667eea',
+                        secondary: '#764ba2',
+                        danger: '#dc3545',
+                        success: '#28a745',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 绝缘子数量检测系统</h1>
+        </div>
+
+        <div class="main-content">
+            <!-- 左侧：历史记录 -->
+            <div class="left-panel">
+                <div class="panel-title">📁 历史记录</div>
+                <div style="padding: 8px 10px; background: white; border-bottom: 1px solid #e9ecef; display: flex; gap: 6px;">
+                    <button class="header-action-btn" onclick="selectAllHistory()" title="全选">☑ 全选</button>
+                    <button class="header-action-btn" onclick="clearAllHistory()" title="清空列表">🗑 清空</button>
+                    <button class="header-action-btn" onclick="clearAllMarks()" title="清除标记">↶ 清除</button>
+                </div>
+                <div style="padding: 8px 10px; background: white; border-bottom: 1px solid #e9ecef;">
+                    <button class="header-action-btn delete-btn" onclick="deleteSelectedHistory()" style="flex: 1;">✕ 删除选中</button>
+                </div>
+
+                <!-- 筛选栏 -->
+                <div class="filter-bar" id="filterBar" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 13px; color: #495057;">模型:</label>
+                        <select id="modelFilter" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #dee2e6; font-size: 13px; min-width: 180px;" onchange="applyFilters()">
+                            <option value="all">全部模型</option>
+                            <!-- 模型选项将由 JS 动态填充 -->
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="enableCountFilter" onchange="applyFilters()" style="cursor: pointer;">
+                        <span style="font-size: 13px; color: #495057;">显示数量 < </span>
+                        <input type="number" id="countThreshold" value="70" min="0" max="1000" style="width: 70px; padding: 6px; border-radius: 6px; border: 1px solid #dee2e6; font-size: 13px;" onchange="applyFilters()">
+                        <span style="font-size: 13px; color: #495057;"> 的图片</span>
+                    </div>
+                    <div style="margin-left: auto; font-size: 12px; color: #6c757d;" id="filteredCount"></div>
+                </div>
+
+                <!-- 模型对比按钮 -->
+                <div style="padding: 10px; background: white; border-bottom: 1px solid #e9ecef; text-align: center;">
+                    <button class="btn btn-primary" onclick="openComparisonPanel()" style="width: 100%;">📊 模型对比</button>
+                </div>
+
+                <div class="history-list" id="historyList">
+                    <div style="padding: 20px; text-align: center; color: #adb5bd;">
+                        暂无记录
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中间：图片展示 -->
+            <div class="center-panel">
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <button class="tool-btn" onclick="zoomIn()">🔍+ 放大</button>
+                        <button class="tool-btn" onclick="zoomOut()">🔍- 缩小</button>
+                        <button class="tool-btn" onclick="fitToWindow()">⊙ 适应窗口</button>
+                        <button class="tool-btn" onclick="actualSize()">1:1 实际尺寸</button>
+                        <div class="zoom-display" id="zoomDisplay">100%</div>
+                    </div>
+                    <div class="image-name" id="imageName">未选择图片</div>
+                </div>
+
+                <div class="image-container" id="imageContainer">
+                    <div class="image-wrapper" id="imageWrapper">
+                        <canvas id="mainCanvas"></canvas>
+                    </div>
+
+                    <!-- 上传按钮 -->
+                    <div class="upload-overlay" id="uploadOverlay">
+                        <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                            📁 上传图片开始检测
+                        </button>
+                    </div>
+
+                    <!-- 当前图片操作按钮区域 -->
+                    <div class="current-image-actions" id="currentImageActions">
+                        <button class="mark-btn mark-pass" id="markPassBtn" onclick="markCurrentAs('pass')">
+                            ✓ 标记为通过
+                        </button>
+                        <button class="mark-btn mark-fail" id="markFailBtn" onclick="markCurrentAs('fail')">
+                            ✗ 标记为未通过
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：文件上传和统计 -->
+            <div class="right-panel">
+                <div class="panel-title">📤 批量上传</div>
+
+                <div class="upload-section">
+                    <div class="upload-buttons">
+                        <button class="upload-btn-small" onclick="document.getElementById('fileInput').click()">
+                            📄 选择文件
+                        </button>
+                        <button class="upload-btn-small" onclick="document.getElementById('folderInput').click()">
+                            📁 选择文件夹
+                        </button>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*" multiple>
+                    <input type="file" id="folderInput" accept="image/*" webkitdirectory directory>
+                </div>
+
+                <!-- 模型选择器 -->
+                <div class="panel-title" style="border-top: 2px solid #e9ecef;">🤖 模型选择</div>
+                <div class="model-selector">
+                    <div class="model-selector-label">
+                        <span>选择检测模型</span>
+                        <span id="currentModelLabel" style="color: #667eea;">加载中...</span>
+                    </div>
+                    <select class="model-select" id="modelSelect" onchange="switchModel(this.value)">
+                        <option value="">加载中...</option>
+                    </select>
+                    <div class="model-loading" id="modelLoading">
+                        <div class="model-loading-spinner"></div>
+                        <span>正在加载模型...</span>
+                    </div>
+                    <div class="model-status" id="modelStatus">
+                        <div class="model-status-dot"></div>
+                        <span id="modelStatusText">模型就绪</span>
+                    </div>
+                </div>
+
+                <div class="panel-title" style="border-top: 2px solid #e9ecef;">📋 文件列表 <span id="selectedCount">(已选 0 项)</span></div>
+                <div style="padding: 10px; background: white; border-bottom: 1px solid #e9ecef; display: flex; gap: 10px;">
+                    <button class="btn btn-small btn-secondary" onclick="selectAllFiles()">全选</button>
+                    <button class="btn btn-small btn-secondary" onclick="clearAllFiles()">清空</button>
+                </div>
+                <div class="file-list" id="fileList">
+                    <div style="padding: 20px; text-align: center; color: #adb5bd;">
+                        暂无文件
+                    </div>
+                </div>
+
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-label">检测状态</div>
+                        <div class="stat-value" id="statusValue">-</div>
+                        <div id="batchProgress" style="display: none; font-size: 13px; color: rgba(255,255,255,0.8); margin-top: 4px;">
+                            <span id="processedCount">0</span>/<span id="totalCount">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">绝缘子数量</div>
+                        <div class="stat-value" id="countValue">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">平均置信度</div>
+                        <div class="stat-value" id="avgConfValue">-</div>
+                    </div>
+                </div>
+
+                <div class="export-section">
+                    <button class="btn btn-success" id="exportBtn" disabled>
+                        📥 导出当前结果
+                    </button>
+                    <button class="btn btn-primary" id="batchExportBtn" disabled onclick="batchExport()">
+                        📦 批量导出选中项
+                    </button>
+                    <button class="btn btn-warning" id="stopBatchBtn" onclick="stopBatchProcessing()" disabled>
+                        ⏹ 停止批量处理
+                    </button>
+                    <div style="font-size: 12px; color: #6c757d; text-align: center; margin-top: 5px;">
+                        支持导出多个结果为 ZIP 包
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载动画 -->
+    <div class="loading" id="loadingSpinner">
+        <div class="spinner"></div>
+        <p>正在检测...</p>
+    </div>
+
+    <script>
+        // 全局变量
+        let originalImage = null;
+        let detectedImageBase64 = null;
+        let currentDetections = [];
+        let currentImagePath = null;
+        let currentImageName = null;
+        let currentImageItem = null;  // 当前加载的历史记录项
+        let history = [];
+        let pendingFiles = [];
+        let processedFiles = [];
+        const MAX_HISTORY = 200;  // 支持200条历史记录，可查看所有检测结果
+
+        // 批量处理控制
+        let isBatchProcessing = false;
+        let shouldStopProcessing = false;
+        let totalFilesToProcess = 0;
+        let processedCount = 0;
+
+        // 选中状态
+        let selectedHistoryItems = new Set();
+        let selectedFileItems = new Set();
+
+        // 标记状态 (pass/fail/none)
+        let historyStatus = {};  // { image_id: 'pass' | 'fail' | 'none' }
+
+        // 文件夹分组状态
+        let folderExpandedState = {};  // { folder_name: true | false }
+        let currentFolderMode = true;  // 是否启用文件夹分组模式
+
+        // 模型相关
+        let availableModels = [];
+        let currentModelKey = null;
+
+        // 缩放相关
+        let zoom = 1;
+        let panX = 0;
+        let panY = 0;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+
+        // DOM 元素
+        const mainCanvas = document.getElementById('mainCanvas');
+        const mainCtx = mainCanvas.getContext('2d');
+        const imageContainer = document.getElementById('imageContainer');
+        const imageWrapper = document.getElementById('imageWrapper');
+        const uploadOverlay = document.getElementById('uploadOverlay');
+        const fileInput = document.getElementById('fileInput');
+        const folderInput = document.getElementById('folderInput');
+        const exportBtn = document.getElementById('exportBtn');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const historyList = document.getElementById('historyList');
+        const fileList = document.getElementById('fileList');
+        const zoomDisplay = document.getElementById('zoomDisplay');
+        const imageNameDisplay = document.getElementById('imageName');
+        const batchExportBtn = document.getElementById('batchExportBtn');
+
+        // 批量选择历史记录
+        function selectAllHistory() {
+            history.forEach((_, index) => selectedHistoryItems.add(index));
+            updateHistoryCheckboxes();
+            updateBatchExportButton();
+        }
+
+        function clearAllHistory() {
+            selectedHistoryItems.clear();
+            updateHistoryCheckboxes();
+            updateBatchExportButton();
+        }
+
+        function clearAllMarks() {
+            historyStatus = {};
+            updateHistoryList();
+        }
+
+        function toggleHistorySelection(index, event) {
+            event.stopPropagation();
+            if (selectedHistoryItems.has(index)) {
+                selectedHistoryItems.delete(index);
+            } else {
+                selectedHistoryItems.add(index);
+            }
+            updateHistoryCheckboxes();
+            updateBatchExportButton();
+        }
+
+        // 批量选择文件
+        function selectAllFiles() {
+            processedFiles.forEach((_, index) => selectedFileItems.add(index));
+            updateFileCheckboxes();
+            updateBatchExportButton();
+        }
+
+        function clearAllFiles() {
+            selectedFileItems.clear();
+            updateFileCheckboxes();
+            updateBatchExportButton();
+        }
+
+        function toggleFileSelection(index, event) {
+            event.stopPropagation();
+            if (selectedFileItems.has(index)) {
+                selectedFileItems.delete(index);
+            } else {
+                selectedFileItems.add(index);
+            }
+            updateFileCheckboxes();
+            updateBatchExportButton();
+        }
+
+        // ==================== 模型管理 ====================
+        // 页面加载时获取模型列表
+        async function loadModels() {
+            try {
+                const response = await fetch('/api/models');
+                const data = await response.json();
+
+                availableModels = data.models;
+                currentModelKey = data.current_model;
+
+                updateModelSelect();
+                updateModelStatus();
+                // 同时更新筛选栏的模型下拉框
+                updateFilterModelOptions();
+
+            } catch (error) {
+                console.error('Failed to load models:', error);
+                showModelError('无法加载模型列表');
+            }
+        }
+
+        // 更新筛选栏的模型下拉框
+        function updateFilterModelOptions() {
+            const modelFilter = document.getElementById('modelFilter');
+            if (!modelFilter) return;
+
+            // 保存当前选择
+            const currentValue = modelFilter.value;
+            modelFilter.innerHTML = '<option value="all">全部模型</option>';
+
+            availableModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.key;
+                option.textContent = `${model.name} - ${model.description}`;
+                modelFilter.appendChild(option);
+            });
+
+            // 恢复之前的选择
+            modelFilter.value = currentValue;
+        }
+
+        // 应用筛选条件
+        function applyFilters() {
+            updateHistoryList();
+        }
+
+        // 获取筛选后的历史记录
+        function getFilteredHistory() {
+            let filtered = history;
+
+            // 模型筛选
+            const modelFilter = document.getElementById('modelFilter');
+            if (modelFilter && modelFilter.value !== 'all') {
+                filtered = filtered.filter(item => {
+                    return item.modelInfo && item.modelInfo.key === modelFilter.value;
+                });
+            }
+
+            // 数量筛选
+            const enableCountFilter = document.getElementById('enableCountFilter');
+            const countThreshold = document.getElementById('countThreshold');
+            if (enableCountFilter && enableCountFilter.checked) {
+                const threshold = parseInt(countThreshold.value) || 70;
+                filtered = filtered.filter(item => item.count < threshold);
+            }
+
+            return filtered;
+        }
+
+        // 打开模型对比面板
+        function openComparisonPanel() {
+            // 按原始路径分组图片
+            const imageGroups = {};
+            history.forEach(item => {
+                const key = item.fullName || item.imageName;
+                if (!imageGroups[key]) {
+                    imageGroups[key] = [];
+                }
+                imageGroups[key].push(item);
+            });
+
+            // 只显示有多条模型检测结果的图片
+            const comparableImages = Object.entries(imageGroups)
+                .filter(([key, items]) => items.length >= 2)
+                .slice(0, 10);  // 最多对比10张
+
+            if (comparableImages.length === 0) {
+                alert('没有可以对比的图片！\n\n请先用不同模型检测同一张图片，然后进行对比。');
+                return;
+            }
+
+            // 创建对比面板
+            const panel = window.open('', '_blank', 'width=1200,height=800');
+            panel.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>模型对比</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+                        h1 { color: #333; text-align: center; }
+                        .comparison-item { margin-bottom: 30px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+                        .comparison-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+                        .comparison-title { font-size: 18px; font-weight: bold; color: #333; }
+                        .comparison-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+                        .model-result { border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; background: #f8f9fa; }
+                        .model-result-header { font-weight: bold; color: #667eea; margin-bottom: 10px; font-size: 14px; }
+                        .model-result-count { font-size: 32px; color: #333; margin: 10px 0; }
+                        .model-result-details { display: flex; gap: 15px; font-size: 13px; color: #666; }
+                        .detail-item { display: flex; flex-direction: column; }
+                        .detail-label { color: #888; font-size: 12px; }
+                        .detail-value { font-weight: 600; color: #333; }
+                        .thumbnail { width: 100%; height: 180px; object-fit: cover; border-radius: 4px; margin-bottom: 10px; background: #000; }
+                    </style>
+                </head>
+                <body>
+                    <h1>📊 模型检测结果对比</h1>
+                    ${comparableImages.map(([imageName, items]) => `
+                        <div class="comparison-item">
+                            <div class="comparison-header">
+                                <div class="comparison-title">📷 ${imageName.split('/').pop()}</div>
+                                <div style="font-size: 13px; color: #888;">${items.length} 个模型检测结果</div>
+                            </div>
+                            <div class="comparison-grid">
+                                ${items.map(item => {
+                                    const avgConf = item.detections.length > 0
+                                        ? (item.detections.reduce((sum, d) => sum + d.confidence, 0) / item.detections.length).toFixed(3)
+                                        : 'N/A';
+                                    return `
+                                        <div class="model-result">
+                                            <div class="model-result-header">${item.modelInfo ? item.modelInfo.name : '未知模型'}</div>
+                                            <div class="model-result-count">${item.count} 个</div>
+                                            <div class="model-result-details">
+                                                <div class="detail-item">
+                                                    <span class="detail-label">平均置信度</span>
+                                                    <span class="detail-value">${avgConf}</span>
+                                                </div>
+                                                <div class="detail-item">
+                                                    <span class="detail-label">检测时间</span>
+                                                    <span class="detail-value">${item.timestamp}</span>
+                                                </div>
+                                            </div>
+                                            <img class="thumbnail" src="data:image/jpeg;base64,${item.thumbnailBase64}">
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </body>
+                </html>
+            `);
+            panel.document.close();
+        }
+
+        // 更新模型选择下拉框
+        function updateModelSelect() {
+            const modelSelect = document.getElementById('modelSelect');
+            modelSelect.innerHTML = '';
+
+            availableModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.key;
+                option.textContent = `${model.name} - ${model.description}`;
+
+                if (!model.exists) {
+                    option.textContent += ' (文件不存在)';
+                    option.disabled = true;
+                }
+
+                if (model.key === currentModelKey) {
+                    option.selected = true;
+                }
+
+                modelSelect.appendChild(option);
+            });
+
+            // 更新当前模型标签
+            const currentModel = availableModels.find(m => m.key === currentModelKey);
+            if (currentModel) {
+                document.getElementById('currentModelLabel').textContent = currentModel.name;
+            }
+        }
+
+        // 更新模型状态显示
+        function updateModelStatus() {
+            const modelStatus = document.getElementById('modelStatus');
+            const modelStatusText = document.getElementById('modelStatusText');
+            const currentModel = availableModels.find(m => m.key === currentModelKey);
+
+            if (currentModel && currentModel.exists) {
+                modelStatus.classList.remove('error');
+                modelStatusText.textContent = `模型就绪 - ${currentModel.description}`;
+            } else {
+                modelStatus.classList.add('error');
+                modelStatusText.textContent = '模型文件不存在';
+            }
+        }
+
+        // 显示模型错误
+        function showModelError(message) {
+            const modelStatus = document.getElementById('modelStatus');
+            const modelStatusText = document.getElementById('modelStatusText');
+            modelStatus.classList.add('error');
+            modelStatusText.textContent = message;
+        }
+
+        // 切换模型
+        async function switchModel(modelKey) {
+            if (!modelKey || modelKey === currentModelKey) {
+                return;
+            }
+
+            const modelLoading = document.getElementById('modelLoading');
+            const modelSelect = document.getElementById('modelSelect');
+            const modelStatus = document.getElementById('modelStatus');
+
+            try {
+                // 显示加载状态
+                modelLoading.classList.add('active');
+                modelSelect.disabled = true;
+
+                const response = await fetch('/api/switch_model', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_key: modelKey })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentModelKey = modelKey;
+                    updateModelSelect();
+                    updateModelStatus();
+
+                    // 显示成功提示
+                    modelStatus.classList.remove('error');
+                    document.getElementById('modelStatusText').textContent = `已切换到 ${data.model_name}`;
+                } else {
+                    showModelError(data.error || '切换失败');
+                    // 恢复原来的选择
+                    modelSelect.value = currentModelKey;
+                }
+
+            } catch (error) {
+                console.error('Switch model error:', error);
+                showModelError('切换模型失败: ' + error.message);
+                // 恢复原来的选择
+                modelSelect.value = currentModelKey;
+            } finally {
+                modelLoading.classList.remove('active');
+                modelSelect.disabled = false;
+            }
+        }
+
+        // 更新复选框状态
+        function updateHistoryCheckboxes() {
+            document.querySelectorAll('.history-checkbox').forEach((cb, index) => {
+                cb.checked = selectedHistoryItems.has(index);
+            });
+        }
+
+        function updateFileCheckboxes() {
+            document.querySelectorAll('.file-checkbox').forEach((cb, index) => {
+                cb.checked = selectedFileItems.has(index);
+            });
+        }
+
+        // 更新批量导出按钮状态
+        function updateBatchExportButton() {
+            const totalCount = selectedHistoryItems.size + selectedFileItems.size;
+            batchExportBtn.disabled = totalCount === 0;
+            batchExportBtn.textContent = `📦 批量导出 (${totalCount}项)`;
+        }
+
+        // 更新批量处理状态显示
+        function updateProcessingStatus() {
+            const batchProgress = document.getElementById('batchProgress');
+            const processedCountEl = document.getElementById('processedCount');
+            const totalCountEl = document.getElementById('totalCount');
+
+            if (isBatchProcessing) {
+                batchProgress.style.display = 'block';
+                processedCountEl.textContent = processedCount;
+                totalCountEl.textContent = totalFilesToProcess;
+            } else {
+                batchProgress.style.display = 'none';
+            }
+
+            // 更新停止按钮状态
+            updateStopButton(isBatchProcessing);
+        }
+
+        // 停止批量处理
+        function stopBatchProcessing() {
+            if (isBatchProcessing) {
+                shouldStopProcessing = true;
+                document.getElementById('statusValue').textContent = '正在停止...';
+
+                // 更新停止按钮状态
+                const stopBtn = document.getElementById('stopBatchBtn');
+                stopBtn.disabled = true;
+            }
+        }
+
+        // 启用/禁用停止按钮
+        function updateStopButton(enabled) {
+            const stopBtn = document.getElementById('stopBatchBtn');
+            if (stopBtn) {
+                stopBtn.disabled = !enabled;
+            }
+        }
+
+        // 批量导出
+        async function batchExport() {
+            const selectedItems = [];
+
+            // 收集历史记录中的选中项
+            selectedHistoryItems.forEach(index => {
+                const item = history[index];
+                selectedItems.push({
+                    image_path: item.path,
+                    detections: item.detections,
+                    image_name: item.imageName,
+                    model_info: item.modelInfo  // 添加模型信息
+                });
+            });
+
+            // 收集文件列表中的选中项
+            selectedFileItems.forEach(index => {
+                const item = processedFiles[index];
+                if (item.result) {
+                    selectedItems.push({
+                        image_path: item.result.image_path,
+                        detections: item.result.detections,
+                        image_name: item.file.name
+                    });
+                }
+            });
+
+            if (selectedItems.length === 0) {
+                alert('请先选择要导出的项目！');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/batch_export_labelme', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: selectedItems })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const link = document.createElement('a');
+                    link.href = result.download_url;
+                    link.download = result.filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    alert(`批量导出成功！已导出 ${selectedItems.length} 个文件`);
+                } else {
+                    alert('批量导出失败: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Batch export error:', error);
+                alert('批量导出失败: ' + error.message);
+            }
+        }
+
+        // 文件输入事件
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFiles(Array.from(e.target.files));
+            }
+        });
+
+        folderInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFiles(Array.from(e.target.files));
+            }
+        });
+
+        // 处理多个文件
+        function handleFiles(files) {
+            const imageFiles = files.filter(f => f.type.startsWith('image/'));
+
+            if (imageFiles.length === 0) {
+                alert('请选择图片文件！');
+                return;
+            }
+
+            // 重置批量处理状态
+            isBatchProcessing = true;
+            shouldStopProcessing = false;
+            totalFilesToProcess = imageFiles.length;
+            processedCount = 0;
+
+            // 更新处理状态显示
+            updateProcessingStatus();
+            // 启用停止按钮
+            updateStopButton(true);
+
+            // 添加到待处理列表
+            imageFiles.forEach(file => {
+                if (!pendingFiles.find(f => f.name === file.name)) {
+                    pendingFiles.push({
+                        file: file,
+                        status: 'pending',
+                        result: null
+                    });
+                }
+            });
+
+            updateFileList();
+
+            // 开始处理第一个文件
+            processNextFile();
+        }
+
+        // 更新文件列表
+        function updateFileList() {
+            if (pendingFiles.length === 0 && processedFiles.length === 0) {
+                fileList.innerHTML = '<div style="padding: 20px; text-align: center; color: #adb5bd;">暂无文件</div>';
+                updateSelectedCount();
+                return;
+            }
+
+            let html = '';
+            let processedIndex = 0;
+
+            processedFiles.forEach(item => {
+                html += `
+                    <div class="file-item ${item.status}" onclick="toggleFileSelection(${processedIndex}, event)">
+                        <input type="checkbox" class="file-checkbox" ${selectedFileItems.has(processedIndex) ? 'checked' : ''}>
+                        <div class="file-name">${item.file.name}</div>
+                        <div class="file-count">绝缘子: ${item.result?.insulator_count || 0} 个</div>
+                        <div class="file-status">✓ 已完成</div>
+                    </div>
+                `;
+                processedIndex++;
+            });
+
+            pendingFiles.forEach(item => {
+                const statusText = {
+                    'pending': '等待处理...',
+                    'processing': '正在检测...',
+                    'completed': '✓ 已完成',
+                    'error': '✗ 失败'
+                }[item.status];
+
+                html += `
+                    <div class="file-item ${item.status}">
+                        <div class="file-name">${item.file.name}</div>
+                        <div class="file-status">${statusText}</div>
+                    </div>
+                `;
+            });
+
+            fileList.innerHTML = html;
+            updateSelectedCount();
+        }
+
+        // 更新选中计数显示
+        function updateSelectedCount() {
+            const totalCount = selectedHistoryItems.size + selectedFileItems.size;
+            document.getElementById('selectedCount').textContent = `(已选 ${totalCount} 项)`;
+        }
+
+        // 处理下一个文件
+        async function processNextFile() {
+            // 检查是否需要停止
+            if (shouldStopProcessing) {
+                // 清空剩余的待处理文件
+                pendingFiles = [];
+                isBatchProcessing = false;
+                updateProcessingStatus();
+                alert('批量处理已停止');
+                return;
+            }
+
+            const nextFile = pendingFiles.find(f => f.status === 'pending');
+
+            if (!nextFile) {
+                // 所有文件处理完成
+                isBatchProcessing = false;
+                document.getElementById('statusValue').textContent = '处理完成';
+                updateProcessingStatus();
+                return;
+            }
+
+            nextFile.status = 'processing';
+            updateFileList();
+
+            await processFile(nextFile);
+        }
+
+        // 处理单个文件
+        async function processFile(fileItem) {
+            const file = fileItem.file;
+
+            try {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const img = new Image();
+                    img.onload = async () => {
+                        originalImage = img;
+                        uploadOverlay.classList.add('hidden');
+
+                        // 显示检测状态
+                        document.getElementById('statusValue').textContent = '检测中...';
+
+                        try {
+                            const formData = new FormData();
+
+                            // 直接使用原始文件，确保 webkitRelativePath 信息被保留
+                            formData.append('image', file);
+
+                            // 额外传递原始路径信息（用于文件夹分组）
+                            // webkitRelativePath 在文件夹上传时包含完整相对路径
+                            // 文件上传时则只包含文件名
+                            const originalPath = file.webkitRelativePath || file.name;
+                            formData.append('original_path', originalPath);
+
+                            const uploadResponse = await fetch('/api/upload', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            const result = await uploadResponse.json();
+
+                            if (result.success) {
+                                fileItem.result = result;
+                                fileItem.status = 'completed';
+                                fileItem.result.model_info = result.model_info;  // 保存模型信息
+
+                                // 更新处理计数
+                                processedCount++;
+                                updateProcessingStatus();
+
+                                currentDetections = result.detections;
+                                currentImagePath = result.image_path;
+                                currentImageName = result.image_name;
+                                detectedImageBase64 = result.image_base64;
+
+                                // 显示图片名称
+                                imageNameDisplay.textContent = result.image_name;
+
+                                drawDetectedImage();
+                                updateStats(result);
+
+                                imageContainer.classList.remove('empty');
+                                exportBtn.disabled = false;
+
+                                addToHistory(result);
+
+                                // 移动到已完成列表
+                                pendingFiles = pendingFiles.filter(f => f !== fileItem);
+                                processedFiles.push(fileItem);
+                                updateFileList();
+
+                                // 继续处理下一个
+                                processNextFile();
+                            } else {
+                                fileItem.status = 'error';
+                                updateFileList();
+                                alert(`检测失败: ${result.error}`);
+                                processNextFile();
+                            }
+                        } catch (error) {
+                            console.error('Detection error:', error);
+                            fileItem.status = 'error';
+                            updateFileList();
+                            alert('检测失败: ' + error.message);
+                            processNextFile();
+                        } finally {
+                            // 检测完成
+                        }
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            } catch (error) {
+                fileItem.status = 'error';
+                updateFileList();
+                processNextFile();
+            }
+        }
+
+        // 缩放功能
+        function setZoom(newZoom) {
+            zoom = Math.max(0.1, Math.min(5, newZoom));
+            updateTransform();
+            zoomDisplay.textContent = Math.round(zoom * 100) + '%';
+        }
+
+        function zoomIn() {
+            setZoom(zoom * 1.2);
+        }
+
+        function zoomOut() {
+            setZoom(zoom / 1.2);
+        }
+
+        function fitToWindow() {
+            if (!originalImage) return;
+
+            const containerWidth = imageContainer.clientWidth - 40;
+            const containerHeight = imageContainer.clientHeight - 40;
+
+            const scaleX = containerWidth / originalImage.width;
+            const scaleY = containerHeight / originalImage.height;
+
+            setZoom(Math.min(scaleX, scaleY));
+            panX = 0;
+            panY = 0;
+            updateTransform();
+        }
+
+        function actualSize() {
+            setZoom(1);
+            panX = 0;
+            panY = 0;
+            updateTransform();
+        }
+
+        function updateTransform() {
+            imageWrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+        }
+
+        // 拖拽功能
+        imageContainer.addEventListener('mousedown', (e) => {
+            if (!detectedImageBase64) return;
+            isDragging = true;
+            dragStartX = e.clientX - panX;
+            dragStartY = e.clientY - panY;
+            imageContainer.classList.add('grabbing');
+            imageWrapper.classList.add('dragging');
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            panX = e.clientX - dragStartX;
+            panY = e.clientY - dragStartY;
+            updateTransform();
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            imageContainer.classList.remove('grabbing');
+            imageWrapper.classList.remove('dragging');
+        });
+
+        // 鼠标滚轮缩放
+        imageContainer.addEventListener('wheel', (e) => {
+            if (!detectedImageBase64) return;
+            e.preventDefault();
+
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            setZoom(zoom * delta);
+        });
+
+        // 绘制检测结果
+        function drawDetectedImage() {
+            if (!detectedImageBase64) return;
+
+            const img = new Image();
+            img.onload = () => {
+                mainCanvas.width = img.width;
+                mainCanvas.height = img.height;
+                mainCtx.drawImage(img, 0, 0);
+
+                // 初始适应窗口
+                fitToWindow();
+            };
+
+            // 直接使用后端返回的base64字符串
+            img.src = 'data:image/jpeg;base64,' + detectedImageBase64;
+        }
+
+        // 更新统计
+        function updateStats(result) {
+            document.getElementById('statusValue').textContent = '检测完成';
+            document.getElementById('countValue').textContent = result.insulator_count;
+            const avgConf = result.detections.reduce((sum, d) => sum + d.confidence, 0) / result.detections.length;
+            document.getElementById('avgConfValue').textContent = avgConf.toFixed(3);
+        }
+
+        // 添加到历史记录（优化内存）
+        function addToHistory(result) {
+            // 从原始路径中提取文件夹信息
+            // 使用 backend 返回的 original_path 字段
+            const originalPath = result.original_path || result.image_name;
+            const pathParts = originalPath.split(/[\/\\]/);  // 支持正斜杠和反斜杠
+
+            let folderName = 'root';
+            let displayName = originalPath;
+
+            if (pathParts.length > 1) {
+                // 有文件夹路径，将父目录用 "-" 连接
+                // 例如: ["173", "二线绝缘子", "image.jpg"] -> "173-二线绝缘子"
+                folderName = pathParts.slice(0, -1).join('-');
+                displayName = pathParts[pathParts.length - 1];
+            }
+
+            const historyItem = {
+                id: result.image_id,  // 唯一ID
+                imageBase64: result.image_base64,  // 存储大图，支持查看历史图片
+                thumbnailBase64: result.thumbnail_base64,  // 存储缩略图
+                imageName: displayName,  // 图片名称（不含路径）
+                fullName: originalPath,  // 完整原始路径
+                count: result.insulator_count,
+                path: result.image_path,
+                detections: result.detections,
+                timestamp: new Date().toLocaleTimeString(),
+                folderName: folderName,  // 文件夹名称（用 "-" 连接）
+                modelInfo: result.model_info || null  // 模型信息
+            };
+
+            // 添加到历史记录前面
+            history.unshift(historyItem);
+
+            // 限制历史记录数量并清理内存
+            if (history.length > MAX_HISTORY) {
+                const removed = history.pop();
+                delete historyStatus[removed.id];
+                // 清理 base64 字符串，释放内存
+                if (removed.imageBase64) {
+                    removed.imageBase64 = null;
+                }
+                if (removed.thumbnailBase64) {
+                    removed.thumbnailBase64 = null;
+                }
+            }
+
+            updateHistoryList();
+        }
+
+        // 更新历史记录列表
+        function updateHistoryList() {
+            // 使用筛选后的历史记录
+            const filteredHistory = getFilteredHistory();
+
+            // 更新筛选计数显示
+            const filteredCountEl = document.getElementById('filteredCount');
+            if (filteredCountEl) {
+                const totalFiltered = filteredHistory.length;
+                const totalCount = history.length;
+                if (totalFiltered < totalCount) {
+                    filteredCountEl.textContent = `(显示 ${totalFiltered}/${totalCount} 项)`;
+                } else {
+                    filteredCountEl.textContent = '';
+                }
+            }
+
+            if (filteredHistory.length === 0) {
+                historyList.innerHTML = '<div style="padding: 20px; text-align: center; color: #adb5bd;">暂无记录</div>';
+                return;
+            }
+
+            // 按文件夹分组
+            const folderGroups = {};
+            filteredHistory.forEach((item, index) => {
+                const folder = item.folderName || 'root';
+                if (!folderGroups[folder]) {
+                    folderGroups[folder] = [];
+                }
+                folderGroups[folder].push({ item, index });
+            });
+
+            // 初始化文件夹展开状态（默认展开所有）
+            Object.keys(folderExpandedState).forEach(folder => {
+                if (!folderGroups[folder]) {
+                    delete folderExpandedState[folder];
+                }
+            });
+
+            // 渲染分组
+            let html = '';
+            let globalIndex = 0;
+
+            Object.entries(folderGroups).forEach(([folderName, items]) => {
+                const isExpanded = folderExpandedState[folderName] !== false;
+                const folderId = folderName.replace(/[^a-zA-Z0-9]/g, '_');
+
+                // 文件夹头部
+                html += `
+                <div class="folder-group">
+                    <div class="folder-header ${isExpanded ? 'expanded' : ''}" onclick="toggleFolder('${folderName}')">
+                        <span class="folder-toggle">▶</span>
+                        <span class="folder-name">📁 ${folderName === 'root' ? '根目录' : folderName}</span>
+                        <span class="folder-count">(${items.length} 张)</span>
+                    </div>
+                    <div class="folder-items ${isExpanded ? 'expanded' : ''}">
+                `;
+
+                // 文件夹内的图片项
+                items.forEach(({ item, index }) => {
+                    const status = historyStatus[item.id] || 'none';
+                    const statusClass = status === 'pass' ? 'status-pass' : (status === 'fail' ? 'status-fail' : '');
+                    const statusBadge = status === 'pass' ? '<div class="status-badge pass">✓ 通过</div>' :
+                                       (status === 'fail' ? '<div class="status-badge fail">✗ 未通过</div>' : '');
+
+                    // 生成模型标签（柔和灰色背景）
+                    const modelBadge = item.modelInfo
+                        ? `<span class="model-badge" style="background: #f1f3f4; color: #495057; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">${item.modelInfo.name}</span>`
+                        : '';
+
+                    html += `
+                    <div class="history-item in-folder ${index === 0 ? 'active' : ''} ${statusClass}" onclick="loadFromHistory(${globalIndex})" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px;">
+                        <input type="checkbox" class="history-checkbox" ${selectedHistoryItems.has(globalIndex) ? 'checked' : ''} onclick="toggleHistorySelection(${globalIndex}, event)" style="flex-shrink: 0; width: 16px; height: 16px;">
+                        <div style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;">
+                            ${modelBadge}
+                            <span class="history-info" style="font-size: 13px; color: #333; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.imageName}</span>
+                            <span class="history-count" style="font-size: 12px; color: #6c757d; font-weight: 500; white-space: nowrap;">${item.count}个</span>
+                        </div>
+                        ${statusBadge}
+                    </div>
+                    `;
+
+                    // 注意：这里将 index 改为 globalIndex
+                    globalIndex++;
+                });
+
+                html += `
+                    </div>
+                </div>
+                `;
+            });
+
+            historyList.innerHTML = html;
+        }
+
+        // 切换文件夹展开/收起
+        function toggleFolder(folderName) {
+            folderExpandedState[folderName] = folderExpandedState[folderName] === false;
+            updateHistoryList();
+        }
+
+        // 标记历史记录项
+        function markHistoryItem(itemId, status, event) {
+            event.stopPropagation();
+            historyStatus[itemId] = status;
+            updateHistoryList();
+        }
+
+        // 删除单个历史记录项
+        async function deleteHistoryItem(index, event) {
+            event.stopPropagation();
+
+            if (!confirm('确定要删除这条记录吗？')) {
+                return;
+            }
+
+            const item = history[index];
+
+            try {
+                // 调用后端删除API
+                const response = await fetch('/api/delete_image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_path: item.path })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 从历史记录中移除
+                    history.splice(index, 1);
+
+                    // 清理被删除项的标记状态
+                    delete historyStatus[item.id];
+
+                    // 同步删除文件列表中的对应项（通过文件名匹配）
+                    const fileIndex = processedFiles.findIndex(pf => pf.result && pf.result.image_path === item.path);
+                    if (fileIndex !== -1) {
+                        processedFiles.splice(fileIndex, 1);
+
+                        // 更新文件列表选中状态索引
+                        const newFileSelected = new Set();
+                        selectedFileItems.forEach(idx => {
+                            if (idx < fileIndex) {
+                                newFileSelected.add(idx);
+                            } else if (idx > fileIndex) {
+                                newFileSelected.add(idx - 1);
+                            }
+                        });
+                        selectedFileItems = newFileSelected;
+
+                        updateFileList();
+                    }
+
+                    // 更新选中状态索引
+                    const newSelected = new Set();
+                    selectedHistoryItems.forEach(idx => {
+                        if (idx < index) {
+                            newSelected.add(idx);
+                        } else if (idx > index) {
+                            newSelected.add(idx - 1);
+                        }
+                    });
+                    selectedHistoryItems = newSelected;
+
+                    updateHistoryList();
+                    updateBatchExportButton();
+
+                    // 如果删除的是当前显示的图片，清空显示
+                    if (currentImagePath === item.path) {
+                        // 清除 Canvas
+                        mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+                        mainCanvas.width = 0;
+                        mainCanvas.height = 0;
+
+                        // 显示上传按钮
+                        uploadOverlay.classList.remove('hidden');
+                        imageContainer.classList.add('empty');
+
+                        // 清空状态
+                        currentImagePath = null;
+                        currentImageName = null;
+                        currentDetections = [];
+                        detectedImageBase64 = null;
+                        originalImage = null;
+                        imageNameDisplay.textContent = '未选择图片';
+                        document.getElementById('statusValue').textContent = '-';
+                        document.getElementById('countValue').textContent = '-';
+                        document.getElementById('avgConfValue').textContent = '-';
+                        exportBtn.disabled = true;
+                    }
+                } else {
+                    alert('删除失败: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        // 删除选中的历史记录
+        async function deleteSelectedHistory() {
+            if (selectedHistoryItems.size === 0) {
+                alert('请先选择要删除的记录！');
+                return;
+            }
+
+            if (!confirm(`确定要删除选中的 ${selectedHistoryItems.size} 条记录吗？`)) {
+                return;
+            }
+
+            const indicesToDelete = Array.from(selectedHistoryItems).sort((a, b) => b - a);  // 从大到小排序
+            const pathsToDelete = indicesToDelete.map(idx => history[idx].path);
+
+            try {
+                const response = await fetch('/api/batch_delete_images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_paths: pathsToDelete })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 收集要删除的项的ID和路径
+                    const idsToDelete = new Set(indicesToDelete.map(idx => history[idx].id));
+                    const pathsToDelete = new Set(indicesToDelete.map(idx => history[idx].path));
+
+                    // 从后往前删除，避免索引问题
+                    indicesToDelete.forEach(index => {
+                        history.splice(index, 1);
+                    });
+
+                    // 清理被删除项的标记状态
+                    idsToDelete.forEach(id => {
+                        delete historyStatus[id];
+                    });
+
+                    // 同步删除文件列表中的对应项
+                    const fileIndicesToDelete = [];
+                    pathsToDelete.forEach(path => {
+                        const idx = processedFiles.findIndex(pf => pf.result && pf.result.image_path === path);
+                        if (idx !== -1) {
+                            fileIndicesToDelete.push(idx);
+                        }
+                    });
+
+                    // 从后往前删除文件列表项
+                    fileIndicesToDelete.sort((a, b) => b - a).forEach(idx => {
+                        processedFiles.splice(idx, 1);
+                    });
+
+                    // 更新文件列表选中状态索引
+                    const newFileSelected = new Set();
+                    let newFileIndex = 0;
+                    for (let i = 0; i < processedFiles.length + fileIndicesToDelete.length; i++) {
+                        if (!fileIndicesToDelete.includes(i) && selectedFileItems.has(i)) {
+                            newFileSelected.add(newFileIndex);
+                        }
+                        if (!fileIndicesToDelete.includes(i)) {
+                            newFileIndex++;
+                        }
+                    }
+                    selectedFileItems = newFileSelected;
+
+                    updateFileList();
+
+                    // 更新选中状态索引
+                    const newSelected = new Set();
+                    let newIndex = 0;
+                    for (let i = 0; i < history.length + indicesToDelete.length; i++) {
+                        if (!indicesToDelete.includes(i) && selectedHistoryItems.has(i)) {
+                            newSelected.add(newIndex);
+                        }
+                        if (!indicesToDelete.includes(i)) {
+                            newIndex++;
+                        }
+                    }
+                    selectedHistoryItems = newSelected;
+
+                    updateHistoryList();
+                    updateBatchExportButton();
+
+                    // 如果当前显示的图片被删除，清空显示
+                    if (currentImagePath && pathsToDelete.has(currentImagePath)) {
+                        // 清除 Canvas
+                        mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+                        mainCanvas.width = 0;
+                        mainCanvas.height = 0;
+
+                        // 显示上传按钮
+                        uploadOverlay.classList.remove('hidden');
+                        imageContainer.classList.add('empty');
+
+                        // 清空状态
+                        currentImagePath = null;
+                        currentImageName = null;
+                        currentDetections = [];
+                        detectedImageBase64 = null;
+                        originalImage = null;
+                        imageNameDisplay.textContent = '未选择图片';
+                        document.getElementById('statusValue').textContent = '-';
+                        document.getElementById('countValue').textContent = '-';
+                        document.getElementById('avgConfValue').textContent = '-';
+                        exportBtn.disabled = true;
+                    }
+
+                    alert(`成功删除 ${indicesToDelete.length} 条记录`);
+                } else {
+                    alert('删除失败: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Batch delete error:', error);
+                alert('删除失败: ' + error.message);
+            }
+        }
+
+        // 从历史记录加载
+        function loadFromHistory(index) {
+            const item = history[index];
+            currentHistoryItem = item;  // 保存当前加载的历史记录项
+            currentDetections = item.detections;
+            currentImagePath = item.path;
+            currentImageName = item.fullName || item.imageName;
+
+            // 隐藏加载动画（查看历史记录时不需要显示"正在检测"）
+            loadingSpinner.classList.remove('active');
+
+            // 显示图片名称（包含文件夹路径）
+            imageNameDisplay.textContent = item.fullName || item.imageName;
+
+            // 懒加载：只在需要显示大图时才从服务器获取
+            // 如果 item.imageBase64 为 null，则需要重新加载
+            if (item.imageBase64 && detectedImageBase64 !== item.imageBase64) {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img;
+                    mainCanvas.width = img.width;
+                    mainCanvas.height = img.height;
+                    fitToWindow();
+                };
+                img.src = 'data:image/jpeg;base64,' + item.imageBase64;
+            } else {
+                // 如果没有 base64，清空当前显示
+                originalImage = null;
+                detectedImageBase64 = null;
+                mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            }
+
+            const img = new Image();
+            img.onload = () => {
+                originalImage = img;
+                mainCanvas.width = img.width;
+                mainCanvas.height = img.height;
+                mainCtx.drawImage(img, 0, 0);
+
+                uploadOverlay.classList.add('hidden');
+                fitToWindow();
+
+                document.getElementById('statusValue').textContent = '历史记录';
+                document.getElementById('countValue').textContent = item.count;
+                const avgConf = item.detections.reduce((sum, d) => sum + d.confidence, 0) / item.detections.length;
+                document.getElementById('avgConfValue').textContent = avgConf.toFixed(3);
+                exportBtn.disabled = false;
+
+                document.querySelectorAll('.history-item').forEach((el, i) => {
+                    el.classList.toggle('active', i === index);
+                });
+
+                // 更新中间图片下方的操作按钮
+                updateCurrentImageActions();
+            };
+
+            // 直接使用base64字符串
+            img.src = 'data:image/jpeg;base64,' + item.imageBase64;
+        }
+
+        // 导出按钮
+        let currentHistoryItem = null;  // 当前加载的历史记录项
+        exportBtn.addEventListener('click', async () => {
+            if (!currentImagePath || !currentDetections.length) {
+                alert('没有可导出的数据！');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/export_labelme', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_path: currentImagePath,
+                        detections: currentDetections,
+                        model_info: currentHistoryItem ? currentHistoryItem.modelInfo : null  // 添加模型信息
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const link = document.createElement('a');
+                    link.href = result.download_url;
+                    link.download = result.json_path;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    alert(`导出成功: ${result.json_path}`);
+                } else {
+                    alert('导出失败: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('导出失败: ' + error.message);
+            }
+        });
+
+        // 窗口大小变化时重新调整
+        window.addEventListener('resize', () => {
+            if (detectedImageBase64) {
+                fitToWindow();
+            }
+        });
+
+        // 标记当前显示的图片（通过/未通过）
+        function markCurrentAs(status) {
+            if (!currentImageItem) {
+                alert('请先选择一张图片！');
+                return;
+            }
+
+            // 更新历史记录中的状态
+            const historyItem = history.find(item => item.path === currentImagePath);
+            if (historyItem) {
+                historyStatus[historyItem.id] = status;
+                updateHistoryList();
+            }
+
+            // 更新操作按钮状态
+            updateCurrentImageActions();
+        }
+
+        // 更新中间图片下方的操作按钮
+        function updateCurrentImageActions() {
+            const actionsDiv = document.getElementById('currentImageActions');
+            if (!actionsDiv) return;
+
+            // 如果没有加载图片，隐藏操作按钮
+            if (!currentImageItem || !detectedImageBase64) {
+                actionsDiv.style.display = 'none';
+                return;
+            }
+
+            // 显示操作按钮
+            const isPass = historyStatus[currentImageItem.id] === 'pass';
+            const isFail = historyStatus[currentImageItem.id] === 'fail';
+
+            const markPassBtn = document.getElementById('markPassBtn');
+            const markFailBtn = document.getElementById('markFailBtn');
+
+            // 使用 CSS 类来控制样式
+            if (isPass) {
+                markPassBtn.classList.add('active');
+                markPassBtn.classList.remove('inactive');
+            } else {
+                markPassBtn.classList.remove('active');
+                markPassBtn.classList.add('inactive');
+            }
+
+            if (isFail) {
+                markFailBtn.classList.add('active');
+                markFailBtn.classList.remove('inactive');
+            } else {
+                markFailBtn.classList.remove('active');
+                markFailBtn.classList.add('inactive');
+            }
+
+            actionsDiv.style.display = 'flex';
+        }
+
+        // 页面加载时初始化模型列表
+        loadModels();
+    </script>
+</body>
+</html>

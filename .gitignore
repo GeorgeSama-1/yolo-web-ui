@@ -1,0 +1,17 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+dist/
+
+# 运行时生成的
+uploads/
+outputs/
+*.log
+
+# 模型文件（太大可考虑用 Git LFS）
+*.pt
