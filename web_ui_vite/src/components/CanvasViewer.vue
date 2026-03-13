@@ -30,6 +30,14 @@
         <div class="px-4 py-2 bg-gray-50 rounded-lg text-sm text-gray-600 min-w-20 text-center">
           {{ zoomPercent }}
         </div>
+        <button
+          v-if="hasImage"
+          data-testid="add-detection-button"
+          @click="addDetection"
+          class="px-4 py-2 bg-amber-500 text-white rounded-lg cursor-pointer text-sm transition-all hover:bg-amber-600"
+        >
+          + 补加框
+        </button>
       </div>
 
       <div
@@ -64,6 +72,59 @@
       >
         删除选中 ({{ selectedCount }})
       </button>
+    </div>
+
+    <div
+      v-if="selectedDetectionForEditing"
+      class="px-4 py-3 border-b border-amber-200 bg-amber-50 flex items-center justify-between gap-4 flex-shrink-0"
+    >
+      <div>
+        <div class="text-sm font-semibold text-amber-900">实例校正</div>
+        <div class="text-xs text-amber-700 mt-1">
+          当前选中检测框 #{{ selectedDetectionForEditing.id }}，可直接修改类别标签。
+        </div>
+      </div>
+      <div class="min-w-48">
+        <label class="block text-xs font-medium text-amber-800 mb-1">类别标签</label>
+        <select
+          data-testid="detection-class-select"
+          :value="String(selectedDetectionForEditing.class_id ?? 0)"
+          class="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+          @change="handleDetectionClassChange($event.target.value)"
+        >
+          <option
+            v-for="item in editableClassOptions"
+            :key="item.classId"
+            :value="String(item.classId)"
+          >
+            {{ item.className }}
+          </option>
+        </select>
+      </div>
+      <div class="min-w-40">
+        <label class="block text-xs font-medium text-amber-800 mb-1">框宽度</label>
+        <input
+          data-testid="detection-width-input"
+          type="range"
+          min="20"
+          :max="Math.max(canvasWidth || 400, 20)"
+          :value="selectedDetectionWidth"
+          class="w-full"
+          @input="handleDetectionWidthChange($event.target.value)"
+        >
+      </div>
+      <div class="min-w-40">
+        <label class="block text-xs font-medium text-amber-800 mb-1">框高度</label>
+        <input
+          data-testid="detection-height-input"
+          type="range"
+          min="20"
+          :max="Math.max(canvasHeight || 300, 20)"
+          :value="selectedDetectionHeight"
+          class="w-full"
+          @input="handleDetectionHeightChange($event.target.value)"
+        >
+      </div>
     </div>
 
     <!-- Canvas Container -->
@@ -102,6 +163,21 @@
           class="block rounded-lg"
           @click="handleCanvasClick"
         ></canvas>
+        <div
+          v-if="selectedDetectionForEditing"
+          class="absolute rounded border-2 border-emerald-400 pointer-events-none"
+          :style="selectedDetectionOverlayStyle"
+        >
+          <button
+            v-for="handle in resizeHandles"
+            :key="handle.key"
+            type="button"
+            class="absolute h-3 w-3 rounded-full border border-white bg-emerald-500 shadow-sm pointer-events-auto"
+            :class="handle.cursor"
+            :style="handle.style"
+            @mousedown.stop="startResizeDetection(handle.key, $event)"
+          ></button>
+        </div>
       </div>
     </div>
 
@@ -207,6 +283,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { calculateFitScale, clampZoom, formatZoomPercent } from '@/utils/canvas'
+import { createCenteredBBox, moveBBox, resizeBBoxFromHandle } from '@/utils/detectionEditing'
 import { useDetectionState } from '@/composables/useDetectionState'
 
 const state = useDetectionState()
@@ -246,7 +323,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['upload-click', 'mark-pass', 'mark-fail', 'stats-update', 'detection-click', 'detection-hover', 'delete-selected-detections'])
+const emit = defineEmits(['upload-click', 'mark-pass', 'mark-fail', 'stats-update', 'detection-click', 'detection-hover', 'delete-selected-detections', 'update-detection-class', 'add-detection', 'update-detection-bbox'])
 
 // Refs
 const canvasRef = ref(null)
@@ -258,8 +335,12 @@ const zoom = ref(1)
 const panX = ref(0)
 const panY = ref(0)
 const isDragging = ref(false)
+const isDraggingDetection = ref(false)
+const isResizingDetection = ref(false)
 const dragStartX = ref(0)
 const dragStartY = ref(0)
+const dragDetectionStart = ref(null)
+const resizeHandle = ref(null)
 const originalImage = ref(null)
 const hasImage = ref(false)
 const isHoveringBox = ref(false)
@@ -278,7 +359,8 @@ const {
   setBoxLineWidth,
   setBoxFontSize,
   getClassColor,
-  getClassName
+  getClassName,
+  modelClasses
 } = state
 
 // Computed
@@ -315,6 +397,59 @@ const classBreakdown = computed(() => {
 
   return Object.values(breakdown).sort((a, b) => b.count - a.count)
 })
+
+const editableClassOptions = computed(() => {
+  const classes = modelClasses.value
+  if (!classes || Object.keys(classes).length === 0) {
+    return [{ classId: 0, className: 'class_0' }]
+  }
+
+  return Object.entries(classes)
+    .map(([classId, className]) => ({
+      classId: Number(classId),
+      className
+    }))
+    .sort((left, right) => left.classId - right.classId)
+})
+
+const selectedDetectionForEditing = computed(() => {
+  if (!props.detections || props.selectedDetectionBoxes?.size !== 1) {
+    return null
+  }
+
+  const [selectedId] = Array.from(props.selectedDetectionBoxes)
+  return props.detections.find(detection => detection.id === selectedId) || null
+})
+
+const selectedDetectionWidth = computed(() => {
+  if (!selectedDetectionForEditing.value) return 0
+  const [x1, , x2] = selectedDetectionForEditing.value.bbox
+  return Math.max(x2 - x1, 0)
+})
+
+const selectedDetectionHeight = computed(() => {
+  if (!selectedDetectionForEditing.value) return 0
+  const [, y1, , y2] = selectedDetectionForEditing.value.bbox
+  return Math.max(y2 - y1, 0)
+})
+
+const selectedDetectionOverlayStyle = computed(() => {
+  if (!selectedDetectionForEditing.value) return {}
+  const [x1, y1, x2, y2] = selectedDetectionForEditing.value.bbox
+  return {
+    left: `${x1}px`,
+    top: `${y1}px`,
+    width: `${Math.max(x2 - x1, 0)}px`,
+    height: `${Math.max(y2 - y1, 0)}px`
+  }
+})
+
+const resizeHandles = computed(() => ([
+  { key: 'nw', cursor: 'cursor-nwse-resize', style: { left: '-6px', top: '-6px' } },
+  { key: 'ne', cursor: 'cursor-nesw-resize', style: { right: '-6px', top: '-6px' } },
+  { key: 'sw', cursor: 'cursor-nesw-resize', style: { left: '-6px', bottom: '-6px' } },
+  { key: 'se', cursor: 'cursor-nwse-resize', style: { right: '-6px', bottom: '-6px' } }
+]))
 
 const markPassClass = computed(() => {
   const isPass = props.markStatus === 'pass'
@@ -386,8 +521,108 @@ function resetBoxStyles() {
   setBoxFontSize(12)
 }
 
+function handleDetectionClassChange(nextClassId) {
+  if (!selectedDetectionForEditing.value) {
+    return
+  }
+
+  const classId = Number(nextClassId)
+  const classOption = editableClassOptions.value.find(item => item.classId === classId)
+
+  emit('update-detection-class', {
+    detectionId: selectedDetectionForEditing.value.id,
+    classId,
+    className: classOption?.className || `class_${classId}`
+  })
+}
+
+function addDetection() {
+  emit('add-detection', {
+    bbox: createCenteredBBox(canvasWidth.value || 400, canvasHeight.value || 300)
+  })
+}
+
+function getCanvasCoordinates(event) {
+  if (!canvasRef.value) {
+    return null
+  }
+
+  const rect = canvasRef.value.getBoundingClientRect()
+  const scaleX = canvasWidth.value / rect.width
+  const scaleY = canvasHeight.value / rect.height
+
+  return {
+    x: (event.clientX - rect.left) * scaleX,
+    y: (event.clientY - rect.top) * scaleY
+  }
+}
+
+function emitDetectionBBoxUpdate(bbox) {
+  if (!selectedDetectionForEditing.value) {
+    return
+  }
+
+  emit('update-detection-bbox', {
+    detectionId: selectedDetectionForEditing.value.id,
+    bbox
+  })
+}
+
+function handleDetectionWidthChange(nextWidth) {
+  if (!selectedDetectionForEditing.value) {
+    return
+  }
+
+  const width = Math.max(Number(nextWidth), 20)
+  const [x1, y1, , y2] = selectedDetectionForEditing.value.bbox
+  emitDetectionBBoxUpdate([x1, y1, x1 + width, y2])
+}
+
+function handleDetectionHeightChange(nextHeight) {
+  if (!selectedDetectionForEditing.value) {
+    return
+  }
+
+  const height = Math.max(Number(nextHeight), 20)
+  const [x1, y1, x2] = selectedDetectionForEditing.value.bbox
+  emitDetectionBBoxUpdate([x1, y1, x2, y1 + height])
+}
+
+function startResizeDetection(handle, event) {
+  if (!selectedDetectionForEditing.value) {
+    return
+  }
+
+  const point = getCanvasCoordinates(event)
+  if (!point) {
+    return
+  }
+
+  isResizingDetection.value = true
+  resizeHandle.value = handle
+  dragDetectionStart.value = {
+    point,
+    bbox: [...selectedDetectionForEditing.value.bbox]
+  }
+}
+
 function handleMouseDown(e) {
-  if (!hasImage.value || isHoveringBox.value) return
+  if (!hasImage.value) return
+
+  const point = getCanvasCoordinates(e)
+  if (point && selectedDetectionForEditing.value) {
+    const selectedId = findBoxAtPosition(point.x, point.y)
+    if (selectedId === selectedDetectionForEditing.value.id) {
+      isDraggingDetection.value = true
+      dragDetectionStart.value = {
+        point,
+        bbox: [...selectedDetectionForEditing.value.bbox]
+      }
+      return
+    }
+  }
+
+  if (isHoveringBox.value) return
   isDragging.value = true
   dragStartX.value = e.clientX - panX.value
   dragStartY.value = e.clientY - panY.value
@@ -395,6 +630,43 @@ function handleMouseDown(e) {
 
 function handleMouseMove(e) {
   if (!hasImage.value) return
+
+  if (isResizingDetection.value && dragDetectionStart.value && resizeHandle.value) {
+    const point = getCanvasCoordinates(e)
+    if (!point) {
+      return
+    }
+
+    emitDetectionBBoxUpdate(
+      resizeBBoxFromHandle({
+        bbox: dragDetectionStart.value.bbox,
+        handle: resizeHandle.value,
+        deltaX: point.x - dragDetectionStart.value.point.x,
+        deltaY: point.y - dragDetectionStart.value.point.y,
+        canvasWidth: canvasWidth.value,
+        canvasHeight: canvasHeight.value
+      })
+    )
+    return
+  }
+
+  if (isDraggingDetection.value && dragDetectionStart.value) {
+    const point = getCanvasCoordinates(e)
+    if (!point) {
+      return
+    }
+
+    emitDetectionBBoxUpdate(
+      moveBBox(
+        dragDetectionStart.value.bbox,
+        point.x - dragDetectionStart.value.point.x,
+        point.y - dragDetectionStart.value.point.y,
+        canvasWidth.value,
+        canvasHeight.value
+      )
+    )
+    return
+  }
 
   // Handle dragging
   if (isDragging.value) {
@@ -425,10 +697,18 @@ function handleMouseMove(e) {
 
 function handleMouseUp() {
   isDragging.value = false
+  isDraggingDetection.value = false
+  isResizingDetection.value = false
+  dragDetectionStart.value = null
+  resizeHandle.value = null
 }
 
 function handleMouseLeave() {
   isDragging.value = false
+  isDraggingDetection.value = false
+  isResizingDetection.value = false
+  dragDetectionStart.value = null
+  resizeHandle.value = null
   isHoveringBox.value = false
   emit('detection-hover', null)
 }
@@ -619,6 +899,9 @@ defineExpose({
   zoomIn,
   zoomOut,
   render,
-  showBoxSettings
+  showBoxSettings,
+  hasImage,
+  canvasWidth,
+  canvasHeight
 })
 </script>

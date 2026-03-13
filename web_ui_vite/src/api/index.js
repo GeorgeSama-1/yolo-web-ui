@@ -77,15 +77,11 @@ export async function uploadImage(file, originalPath) {
 /**
  * Export single detection result as LabelMe JSON
  */
-export async function exportLabelMe(imagePath, detections, modelInfo) {
+export async function exportLabelMe(exportPayload) {
   return fetchAPI(`${API_BASE}/api/export_labelme`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      image_path: imagePath,
-      detections,
-      model_info: modelInfo
-    })
+    body: JSON.stringify(exportPayload)
   })
 }
 

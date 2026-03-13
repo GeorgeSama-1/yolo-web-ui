@@ -24,6 +24,38 @@ export async function prepareComparisonItems(items, reloadImage) {
   return preparedItems
 }
 
+export function buildExportAnnotationPayload({
+  imagePath,
+  imageName,
+  originalPath,
+  detections,
+  modelInfo
+}) {
+  const finalOriginalPath = originalPath || imageName || null
+  const normalizedDetections = (detections || []).map(detection => ({
+    ...detection,
+    class_id: detection.class_id ?? 0,
+    class_name: detection.class_name ?? `class_${detection.class_id ?? 0}`
+  }))
+
+  return {
+    image_path: imagePath,
+    image_name: imageName || null,
+    original_path: finalOriginalPath,
+    detections: normalizedDetections,
+    instances: normalizedDetections.map(detection => ({
+      id: detection.id,
+      image_path: imagePath,
+      original_path: finalOriginalPath,
+      class_id: detection.class_id,
+      class_name: detection.class_name,
+      bbox: detection.bbox,
+      confidence: detection.confidence
+    })),
+    model_info: modelInfo || null
+  }
+}
+
 export async function deleteSelectedDetectionsOnServer({
   imagePath,
   detections,

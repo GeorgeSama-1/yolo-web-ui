@@ -17,7 +17,7 @@
         <select
           :value="currentModelKey || ''"
           :disabled="isModelSwitching || availableModels.length === 0"
-          class="w-full rounded-xl border border-cyan-500/20 bg-slate-950/90 px-3 py-2.5 text-sm text-cyan-50 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+          class="w-full rounded-xl border border-cyan-500/20 bg-slate-950/90 px-3 py-2 text-xs leading-tight text-cyan-50 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-50"
           @change="handleModelChange($event.target.value)"
         >
           <option disabled value="">
@@ -27,8 +27,9 @@
             v-for="model in availableModels"
             :key="model.key"
             :value="model.key"
+            :title="model.name"
           >
-            {{ model.name }}
+            {{ formatModelOptionLabel(model.name) }}
           </option>
         </select>
 
@@ -372,6 +373,14 @@ function handleModelChange(modelKey) {
     return
   }
   emit('model-changed', modelKey)
+}
+
+function formatModelOptionLabel(label) {
+  if (!label) {
+    return ''
+  }
+
+  return label.length > 32 ? `${label.slice(0, 29)}...` : label
 }
 
 function redetectCurrentImage() {

@@ -626,6 +626,8 @@ def export_labelme():
             else:
                 final_filename = server_filename
 
+        instances = []
+
         # 构建 LabelMe 格式
         labelme_data = {
             'version': '5.10.1',
@@ -634,14 +636,29 @@ def export_labelme():
             'imagePath': final_filename,
             'imageData': None,
             'imageHeight': img_height,
-            'imageWidth': img_width
+            'imageWidth': img_width,
+            'metadata': {
+                'image_path': data.get('image_path'),
+                'original_path': data.get('original_path'),
+                'instances': instances
+            }
         }
 
         # 添加检测框（由前端传来的数据）
         for det in data['detections']:
             x1, y1, x2, y2 = det['bbox']
+            instance = {
+                'id': det.get('id'),
+                'image_path': data.get('image_path'),
+                'original_path': data.get('original_path'),
+                'class_id': det.get('class_id', 0),
+                'class_name': det.get('class_name', get_default_class_name(model)),
+                'bbox': [x1, y1, x2, y2],
+                'confidence': det.get('confidence')
+            }
+            instances.append(instance)
             labelme_data['shapes'].append({
-                'label': det.get('class_name', get_default_class_name(model)),
+                'label': instance['class_name'],
                 'points': [
                     [x1, y1],
                     [x2, y2]
@@ -745,14 +762,29 @@ def batch_export_labelme():
                     'imagePath': final_filename,
                     'imageData': None,
                     'imageHeight': img_height,
-                    'imageWidth': img_width
+                'imageWidth': img_width,
+                'metadata': {
+                    'image_path': item.get('image_path'),
+                    'original_path': item.get('original_path'),
+                    'instances': []
+                }
                 }
 
                 # 添加检测框
                 for det in item['detections']:
                     x1, y1, x2, y2 = det['bbox']
+                    instance = {
+                        'id': det.get('id'),
+                        'image_path': item.get('image_path'),
+                        'original_path': item.get('original_path'),
+                        'class_id': det.get('class_id', 0),
+                        'class_name': det.get('class_name', get_default_class_name(model)),
+                        'bbox': [x1, y1, x2, y2],
+                        'confidence': det.get('confidence')
+                    }
+                    labelme_data['metadata']['instances'].append(instance)
                     labelme_data['shapes'].append({
-                        'label': det.get('class_name', get_default_class_name(model)),
+                        'label': instance['class_name'],
                         'points': [
                             [x1, y1],
                             [x2, y2]

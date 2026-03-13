@@ -28,6 +28,9 @@
         @detection-click="handleDetectionClick"
         @detection-hover="handleDetectionHover"
         @delete-selected-detections="handleDeleteSelectedDetections"
+        @update-detection-class="handleUpdateDetectionClass"
+        @add-detection="handleAddDetection"
+        @update-detection-bbox="handleUpdateDetectionBBox"
       />
     </template>
 
@@ -79,7 +82,12 @@ import SidebarControls from '@/components/SidebarControls.vue'
 import Toast from '@/components/shared/Toast.vue'
 import { useDetectionState } from '@/composables/useDetectionState'
 import * as api from '@/api'
-import { buildComparisonHtml, deleteSelectedDetectionsOnServer, prepareComparisonItems } from '@/utils/appHelpers'
+import {
+  buildComparisonHtml,
+  buildExportAnnotationPayload,
+  deleteSelectedDetectionsOnServer,
+  prepareComparisonItems
+} from '@/utils/appHelpers'
 
 // State management
 const state = useDetectionState()
@@ -169,7 +177,11 @@ const {
   clearDetectionSelection,
   setHoveredDetection,
   deleteSelectedDetections,
-  updateCurrentDetections
+  updateCurrentDetections,
+  updateDetectionClass,
+  addDetectionBox
+  ,
+  updateDetectionBBox
 } = state
 
 // Hidden file inputs
@@ -447,11 +459,15 @@ async function handleExportCurrent() {
   }
 
   try {
-    const result = await api.exportLabelMe(
-      currentImagePath.value,
-      currentDetections.value,
-      currentImageItem.value?.modelInfo
-    )
+    const exportPayload = buildExportAnnotationPayload({
+      imagePath: currentImagePath.value,
+      imageName: currentImageItem.value?.imageName,
+      originalPath: currentImageItem.value?.fullName,
+      detections: currentDetections.value,
+      modelInfo: currentImageItem.value?.modelInfo
+    })
+
+    const result = await api.exportLabelMe(exportPayload)
 
     if (result.success) {
       api.downloadFile(result.download_url, result.json_path)
@@ -472,25 +488,28 @@ async function handleBatchExport() {
   // Collect history selections
   selectedHistoryItems.value.forEach(index => {
     const item = history.value[index]
-    selectedItems.push({
-      image_path: item.path,
-      detections: item.detections,
-      image_name: item.imageName,
-      model_info: item.modelInfo
-    })
+      selectedItems.push({
+        image_path: item.path,
+        image_name: item.imageName,
+        original_path: item.fullName,
+        detections: item.detections,
+        model_info: item.modelInfo
+      })
   })
 
   // Collect file list selections
   selectedFileItems.value.forEach(index => {
     const item = processedFiles.value[index]
-    if (item.result) {
-      selectedItems.push({
-        image_path: item.result.image_path,
-        detections: item.result.detections,
-        image_name: item.file.name
+        if (item.result) {
+          selectedItems.push({
+            image_path: item.result.image_path,
+            image_name: item.result.image_name,
+            original_path: item.result.original_path,
+            detections: item.result.detections,
+            model_info: item.result.model_info
+          })
+        }
       })
-    }
-  })
 
   if (selectedItems.length === 0) {
     alert('请先选择要导出的项目！')
@@ -619,6 +638,63 @@ function handleDetectionClick(detectionId) {
 // Handle detection box hover
 function handleDetectionHover(detectionId) {
   setHoveredDetection(detectionId)
+}
+
+function handleUpdateDetectionClass({ detectionId, classId, className }) {
+  const updatedDetection = updateDetectionClass(detectionId, classId, className)
+  if (!updatedDetection) {
+    return
+  }
+
+  processedFiles.value.forEach(fileItem => {
+    if (fileItem.result?.image_path !== currentImagePath.value || !fileItem.result?.detections) {
+      return
+    }
+
+    fileItem.result.detections = fileItem.result.detections.map(detection => (
+      detection.id === detectionId
+        ? { ...detection, class_id: classId, class_name: className }
+        : detection
+    ))
+  })
+
+  showToast('success', '类别已更新', `检测框 #${detectionId} 已标记为 ${className}`, 1800)
+}
+
+function handleAddDetection({ bbox }) {
+  const nextDetection = addDetectionBox({ bbox })
+  if (!nextDetection) {
+    return
+  }
+
+  processedFiles.value.forEach(fileItem => {
+    if (fileItem.result?.image_path !== currentImagePath.value || !fileItem.result?.detections) {
+      return
+    }
+
+    fileItem.result.detections = [...fileItem.result.detections, nextDetection]
+  })
+
+  showToast('success', '已补加检测框', `新增实例 #${nextDetection.id}`, 1800)
+}
+
+function handleUpdateDetectionBBox({ detectionId, bbox }) {
+  const updatedDetection = updateDetectionBBox(detectionId, bbox)
+  if (!updatedDetection) {
+    return
+  }
+
+  processedFiles.value.forEach(fileItem => {
+    if (fileItem.result?.image_path !== currentImagePath.value || !fileItem.result?.detections) {
+      return
+    }
+
+    fileItem.result.detections = fileItem.result.detections.map(detection => (
+      detection.id === detectionId
+        ? { ...detection, bbox }
+        : detection
+    ))
+  })
 }
 
 async function handleRedetectCurrent({ confidenceThreshold, iouThreshold }) {

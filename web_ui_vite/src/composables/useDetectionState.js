@@ -514,7 +514,65 @@ export function useDetectionState() {
     // Update currentImageItem as well
     if (state.currentImageItem.value) {
       state.currentImageItem.value.detections = newDetections
+      state.currentImageItem.value.count = newDetections.length
     }
+  }
+
+  function updateDetectionClass(detectionId, classId, className) {
+    if (!state.currentDetections.value) return null
+
+    const nextDetections = state.currentDetections.value.map(detection => {
+      if (detection.id !== detectionId) {
+        return detection
+      }
+
+      return {
+        ...detection,
+        class_id: classId,
+        class_name: className
+      }
+    })
+
+    updateCurrentDetections(nextDetections)
+    return nextDetections.find(detection => detection.id === detectionId) || null
+  }
+
+  function addDetectionBox({ bbox, classId = 0, className = null, confidence = 1 }) {
+    const nextId = state.currentDetections.value.length + 1
+    const resolvedClassName = className ?? getClassName(classId)
+    const nextDetection = {
+      id: nextId,
+      bbox,
+      class_id: classId,
+      class_name: resolvedClassName,
+      confidence
+    }
+
+    updateCurrentDetections([
+      ...state.currentDetections.value,
+      nextDetection
+    ])
+
+    state.selectedDetectionBoxes.value = new Set([nextId])
+    return nextDetection
+  }
+
+  function updateDetectionBBox(detectionId, bbox) {
+    if (!state.currentDetections.value) return null
+
+    const nextDetections = state.currentDetections.value.map(detection => {
+      if (detection.id !== detectionId) {
+        return detection
+      }
+
+      return {
+        ...detection,
+        bbox
+      }
+    })
+
+    updateCurrentDetections(nextDetections)
+    return nextDetections.find(detection => detection.id === detectionId) || null
   }
 
   function deleteSelectedDetections() {
@@ -660,6 +718,9 @@ export function useDetectionState() {
     setHoveredDetection,
     setCanvasTransform,
     updateCurrentDetections,
+    updateDetectionClass,
+    addDetectionBox,
+    updateDetectionBBox,
     deleteSelectedDetections,
     clearCurrentDisplay,
     // Box style actions
