@@ -66,6 +66,8 @@ describe('CanvasViewer', () => {
 
     const select = wrapper.find('[data-testid="detection-class-select"]')
     expect(select.exists()).toBe(true)
+    expect(wrapper.find('[data-testid="detection-width-input"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="detection-height-input"]').exists()).toBe(false)
 
     await select.setValue('1')
 
@@ -76,6 +78,21 @@ describe('CanvasViewer', () => {
         className: 'abnormal'
       }
     ]])
+  })
+
+  it('uses an inset highlight overlay for the selected detection instead of an outer border', async () => {
+    const wrapper = mount(CanvasViewer, {
+      props: {
+        detections: [
+          { id: 1, bbox: [10, 10, 40, 40], confidence: 0.92, class_id: 0, class_name: 'normal' }
+        ],
+        selectedDetectionBoxes: new Set([1])
+      }
+    })
+
+    const overlay = wrapper.find('.shadow-\\[inset_0_0_0_2px_\\#34d399\\]')
+    expect(overlay.exists()).toBe(true)
+    expect(overlay.classes()).not.toContain('border-2')
   })
 
   it('enters draw mode so the user can drag out a custom detection box', async () => {
@@ -143,7 +160,7 @@ describe('CanvasViewer', () => {
     expect(wrapper.emitted('update-detection-bbox')).toBeUndefined()
   })
 
-  it('lets the user resize the selected detection from the correction panel', async () => {
+  it('renders canvas overlay handles for resizing the selected detection', async () => {
     const state = useDetectionState()
     state.modelClasses.value = { 0: 'normal', 1: 'abnormal' }
 
@@ -156,16 +173,9 @@ describe('CanvasViewer', () => {
       }
     })
 
-    const widthInput = wrapper.find('[data-testid="detection-width-input"]')
-    expect(widthInput.exists()).toBe(true)
+    await wrapper.vm.$nextTick()
 
-    await widthInput.setValue('80')
-
-    expect(wrapper.emitted('update-detection-bbox')).toEqual([[
-      {
-        detectionId: 1,
-        bbox: [10, 10, 90, 60]
-      }
-    ]])
+    const handles = wrapper.findAll('button.cursor-nwse-resize, button.cursor-nesw-resize')
+    expect(handles.length).toBe(4)
   })
 })

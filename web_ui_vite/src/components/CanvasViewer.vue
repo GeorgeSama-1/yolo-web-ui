@@ -81,7 +81,7 @@
       <div>
         <div class="text-sm font-semibold text-amber-900">实例校正</div>
         <div class="text-xs text-amber-700 mt-1">
-          当前选中检测框 #{{ selectedDetectionForEditing.id }}，可直接修改类别标签。
+          当前选中检测框 #{{ selectedDetectionForEditing.id }}，可直接修改类别标签或拖动角点缩放。
         </div>
       </div>
       <div class="min-w-48">
@@ -100,30 +100,6 @@
             {{ item.className }}
           </option>
         </select>
-      </div>
-      <div class="min-w-40">
-        <label class="block text-xs font-medium text-amber-800 mb-1">框宽度</label>
-        <input
-          data-testid="detection-width-input"
-          type="range"
-          min="20"
-          :max="Math.max(canvasWidth || 400, 20)"
-          :value="selectedDetectionWidth"
-          class="w-full"
-          @input="handleDetectionWidthChange($event.target.value)"
-        >
-      </div>
-      <div class="min-w-40">
-        <label class="block text-xs font-medium text-amber-800 mb-1">框高度</label>
-        <input
-          data-testid="detection-height-input"
-          type="range"
-          min="20"
-          :max="Math.max(canvasHeight || 300, 20)"
-          :value="selectedDetectionHeight"
-          class="w-full"
-          @input="handleDetectionHeightChange($event.target.value)"
-        >
       </div>
     </div>
 
@@ -165,7 +141,7 @@
         ></canvas>
         <div
           v-if="selectedDetectionForEditing"
-          class="absolute rounded border-2 border-emerald-400 pointer-events-none"
+          class="absolute rounded pointer-events-none shadow-[inset_0_0_0_2px_#34d399]"
           :style="selectedDetectionOverlayStyle"
         >
           <button
@@ -430,18 +406,6 @@ const selectedDetectionForEditing = computed(() => {
   return props.detections.find(detection => detection.id === selectedId) || null
 })
 
-const selectedDetectionWidth = computed(() => {
-  if (!selectedDetectionForEditing.value) return 0
-  const [x1, , x2] = selectedDetectionForEditing.value.bbox
-  return Math.max(x2 - x1, 0)
-})
-
-const selectedDetectionHeight = computed(() => {
-  if (!selectedDetectionForEditing.value) return 0
-  const [, y1, , y2] = selectedDetectionForEditing.value.bbox
-  return Math.max(y2 - y1, 0)
-})
-
 const selectedDetectionOverlayStyle = computed(() => {
   if (!selectedDetectionForEditing.value) return {}
   const [x1, y1, x2, y2] = selectedDetectionForEditing.value.bbox
@@ -587,26 +551,6 @@ function emitDetectionBBoxUpdate(bbox) {
     detectionId,
     bbox
   })
-}
-
-function handleDetectionWidthChange(nextWidth) {
-  if (!selectedDetectionForEditing.value) {
-    return
-  }
-
-  const width = Math.max(Number(nextWidth), 20)
-  const [x1, y1, , y2] = selectedDetectionForEditing.value.bbox
-  emitDetectionBBoxUpdate([x1, y1, x1 + width, y2])
-}
-
-function handleDetectionHeightChange(nextHeight) {
-  if (!selectedDetectionForEditing.value) {
-    return
-  }
-
-  const height = Math.max(Number(nextHeight), 20)
-  const [x1, y1, x2] = selectedDetectionForEditing.value.bbox
-  emitDetectionBBoxUpdate([x1, y1, x2, y1 + height])
 }
 
 function startResizeDetection(handle, event) {
