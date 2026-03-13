@@ -16,6 +16,7 @@
   - 角点拖拽缩放
   - 宽高滑块微调
 - 基于导出的实例标注离线生成二阶段分类数据集
+- 直接从标准 LabelMe 矩形框标注离线生成二阶段分类数据集
 - 使用独立脚本训练二阶段分类模型
 
 ## 目录结构
@@ -26,8 +27,9 @@ yolo-web-ui/
 ├── model_bootstrap.py
 ├── model_metadata.py
 ├── detection_processing.py
-├── build_insulator_cls_dataset.py
-├── train_insulator_classifier.py
+├── training/
+│   ├── build_insulator_cls_dataset.py
+│   └── train_insulator_classifier.py
 ├── train_bbox_yolo.ipynb
 ├── uploads/
 ├── outputs/
@@ -147,10 +149,31 @@ experiments/<timestamp>_<experiment_name>/weights/best.pt
 
 ### 第五步：生成二阶段分类数据集
 
+如果你使用的是 `web_ui` 导出的标注，继续按下面的命令执行即可。
+
+如果你手头已经有标准 LabelMe 数据集，也可以直接使用同一个脚本。当前脚本同时支持：
+
+- `web_ui` 导出的 `metadata.instances`
+- 标准 LabelMe 的 `shapes`
+
+标准 LabelMe 数据集的典型目录例如：
+
+```text
+dataset/
+  images/
+    a.jpg
+    b.jpg
+  annotations/
+    a.json
+    b.json
+```
+
+只要每个框都是单个绝缘子实例，且 `label` 是 `normal` / `abnormal`，就可以直接裁剪生成分类数据集。
+
 运行：
 
 ```bash
-python build_insulator_cls_dataset.py \
+python -m training.build_insulator_cls_dataset \
   --annotations-dir outputs \
   --source-images-dir uploads \
   --output-dir data/insulator_cls_dataset
@@ -159,7 +182,7 @@ python build_insulator_cls_dataset.py \
 可选参数示例：
 
 ```bash
-python build_insulator_cls_dataset.py \
+python -m training.build_insulator_cls_dataset \
   --annotations-dir outputs \
   --source-images-dir uploads \
   --output-dir data/insulator_cls_dataset \
@@ -188,7 +211,7 @@ data/insulator_cls_dataset/
 运行：
 
 ```bash
-python train_insulator_classifier.py \
+python -m training.train_insulator_classifier \
   --dataset-dir data/insulator_cls_dataset \
   --experiment-root experiments_cls \
   --experiment-name insulator_cls_exp001 \
@@ -209,6 +232,7 @@ python train_insulator_classifier.py \
 
 - 先把一阶段检测模型训稳，再开始生产二阶段分类数据
 - 不建议直接拿未经人工校正的一阶段输出去训练分类模型
+- 如果你已经有高质量的 LabelMe 二分类框标注，可以直接跳过 `web_ui` 校正步骤，直接生成分类 crop
 - 如果 crop 太紧，优先增加 `--padding-ratio`
 - 如果小框经常被跳过，检查 `dataset_summary.json` 里的 `skip_reasons`
 - 分类数据集最好按原图稳定切分，避免同一张原图的 crop 同时进入 train 和 val
@@ -218,9 +242,9 @@ python train_insulator_classifier.py \
 - 一阶段检测训练：
   - [`train_bbox_yolo.ipynb`](/home/hujing/yolo-web-ui/train_bbox_yolo.ipynb)
 - 二阶段数据集生成：
-  - [`build_insulator_cls_dataset.py`](/home/hujing/yolo-web-ui/build_insulator_cls_dataset.py)
+  - [`build_insulator_cls_dataset.py`](/home/hujing/yolo-web-ui/training/build_insulator_cls_dataset.py)
 - 二阶段分类训练：
-  - [`train_insulator_classifier.py`](/home/hujing/yolo-web-ui/train_insulator_classifier.py)
+  - [`train_insulator_classifier.py`](/home/hujing/yolo-web-ui/training/train_insulator_classifier.py)
 - 两阶段详细说明：
   - [`docs/two_stage_training.md`](/home/hujing/yolo-web-ui/docs/two_stage_training.md)
 

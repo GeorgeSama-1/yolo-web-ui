@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from train_insulator_classifier import (
+from training.train_insulator_classifier import (
     build_training_config,
     ensure_classification_dataset,
     write_experiment_metadata,

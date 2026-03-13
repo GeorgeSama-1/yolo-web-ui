@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from build_insulator_cls_dataset import build_dataset, load_annotations
+from training.build_insulator_cls_dataset import build_dataset, load_annotations
 
 
 class BuildInsulatorClsDatasetTests(unittest.TestCase):
@@ -78,6 +78,37 @@ class BuildInsulatorClsDatasetTests(unittest.TestCase):
             self.assertEqual(len(saved_files), 2)
             self.assertTrue(any("normal" in str(path) for path in saved_files))
             self.assertTrue(any("abnormal" in str(path) for path in saved_files))
+
+    def test_loads_instances_from_standard_labelme_shapes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            annotation_path = root / "sample.json"
+            annotation_path.write_text(json.dumps({
+                "imagePath": "sample.jpg",
+                "shapes": [
+                    {
+                        "label": "normal",
+                        "points": [[12, 18], [40, 52]],
+                        "shape_type": "rectangle"
+                    },
+                    {
+                        "label": "abnormal",
+                        "points": [[50, 20], [80, 60]],
+                        "shape_type": "rectangle"
+                    }
+                ]
+            }), encoding="utf-8")
+
+            instances = load_annotations(root)
+
+            self.assertEqual(len(instances), 2)
+            self.assertEqual(instances[0]["id"], 1)
+            self.assertEqual(instances[0]["class_name"], "normal")
+            self.assertEqual(instances[0]["bbox"], [12, 18, 40, 52])
+            self.assertEqual(instances[0]["original_path"], "sample.jpg")
+            self.assertEqual(instances[1]["id"], 2)
+            self.assertEqual(instances[1]["class_name"], "abnormal")
+            self.assertEqual(instances[1]["bbox"], [50, 20, 80, 60])
 
     def test_reports_skipped_small_crops(self):
         with tempfile.TemporaryDirectory() as temp_dir:

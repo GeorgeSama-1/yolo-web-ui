@@ -8,18 +8,51 @@ from pathlib import Path
 from PIL import Image
 
 
+def _normalize_shape_bbox(points):
+    if not points or len(points) < 2:
+        return None
+
+    x_values = [point[0] for point in points]
+    y_values = [point[1] for point in points]
+    return [
+        int(min(x_values)),
+        int(min(y_values)),
+        int(max(x_values)),
+        int(max(y_values)),
+    ]
+
+
 def load_annotations(annotations_dir):
     annotations = []
     for annotation_path in sorted(Path(annotations_dir).glob("*.json")):
         payload = json.loads(annotation_path.read_text(encoding="utf-8"))
         metadata = payload.get("metadata", {})
         original_path = metadata.get("original_path") or payload.get("imagePath")
+        instances = metadata.get("instances", [])
 
-        for instance in metadata.get("instances", []):
+        if instances:
+            for instance in instances:
+                annotations.append({
+                    **instance,
+                    "annotation_path": str(annotation_path),
+                    "original_path": instance.get("original_path") or original_path,
+                })
+            continue
+
+        for index, shape in enumerate(payload.get("shapes", []), start=1):
+            if shape.get("shape_type", "rectangle") != "rectangle":
+                continue
+
+            bbox = _normalize_shape_bbox(shape.get("points", []))
+            if not bbox:
+                continue
+
             annotations.append({
-                **instance,
+                "id": shape.get("id", index),
+                "class_name": shape.get("label"),
+                "bbox": bbox,
                 "annotation_path": str(annotation_path),
-                "original_path": instance.get("original_path") or original_path,
+                "original_path": original_path,
             })
 
     return annotations
