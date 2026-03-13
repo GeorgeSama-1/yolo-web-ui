@@ -44,6 +44,21 @@ export async function switchModel(modelKey) {
 }
 
 /**
+ * Re-detect the current image with temporary thresholds
+ */
+export async function redetectImage(imagePath, confidenceThreshold, iouThreshold) {
+  return fetchAPI(`${API_BASE}/api/redetect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      image_path: imagePath,
+      confidence_threshold: confidenceThreshold,
+      iou_threshold: iouThreshold
+    })
+  })
+}
+
+/**
  * Upload an image for detection
  */
 export async function uploadImage(file, originalPath) {
@@ -115,6 +130,16 @@ export async function deleteDetection(imagePath, detectionId) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ image_path: imagePath, detection_id: detectionId })
+  })
+}
+
+/**
+ * Clear all uploaded images and exported outputs
+ */
+export async function clearAllUploads() {
+  return fetchAPI(`${API_BASE}/api/clear_all_uploads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
   })
 }
 

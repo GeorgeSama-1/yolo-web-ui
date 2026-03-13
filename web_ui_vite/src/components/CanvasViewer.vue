@@ -108,7 +108,8 @@
     <!-- Box Settings Panel -->
     <div
       v-if="showBoxSettingsPanel"
-      class="absolute top-20 right-4 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50 w-72"
+      data-testid="settings-panel"
+      class="absolute top-20 right-4 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50 w-72 max-h-[calc(100vh-7rem)] overflow-y-auto"
     >
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold text-gray-800">设置</h3>
@@ -120,57 +121,12 @@
         </button>
       </div>
 
-      <!-- Model Selection Section -->
-      <div class="mb-4 pb-4 border-b border-gray-200">
-        <h4 class="text-xs font-semibold text-gray-700 mb-2">🤖 检测模型</h4>
-
-        <!-- Current Model Display -->
-        <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1.5">选择模型</label>
-          <select
-            :value="currentModelKey"
-            @change="handleModelChange($event.target.value)"
-            :disabled="isModelSwitching"
-            class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-          >
-            <option
-              v-for="model in availableModels"
-              :key="model.key"
-              :value="model.key"
-            >
-              {{ model.name }} - {{ model.description }}
-            </option>
-          </select>
-          <div v-if="isModelSwitching" class="text-xs text-blue-600 mt-1 flex items-center gap-1">
-            <span class="inline-block animate-spin">⏳</span> 切换中...
-          </div>
-        </div>
-      </div>
-
-      <!-- Divider -->
-      <div class="border-t border-gray-200 my-4"></div>
-
       <!-- Box Style Section -->
-      <div class="mb-4 pb-4 border-b border-gray-200">
+      <div class="mb-4">
         <h4 class="text-sm font-semibold text-gray-700 mb-3">🎨 检测框样式</h4>
-
-        <!-- Info text -->
-        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p class="text-xs text-blue-700">
-            <span class="font-semibold">💡 提示：</span>
-            检测框颜色由类别自动确定，每种类类使用固定颜色：
-          </p>
-          <div class="mt-2 space-y-1">
-            <div class="flex items-center gap-2 text-xs text-blue-700">
-              <span class="w-3 h-3 rounded-full" style="background-color: #ef4444;"></span>
-              <span>异常</span>
-            </div>
-            <div class="flex items-center gap-2 text-xs text-blue-700">
-              <span class="w-3 h-3 rounded-full" style="background-color: #22c55e;"></span>
-              <span>正常</span>
-            </div>
-          </div>
-        </div>
+        <p class="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-700">
+          检测框颜色会跟随类别自动变化，这里只调整边框宽度和标签字号。
+        </p>
 
       <!-- Line Width -->
       <div class="mb-4">
@@ -203,21 +159,6 @@
           class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
         >
       </div>
-      </div>
-
-      <!-- Divider -->
-      <div class="border-t border-gray-200 my-4"></div>
-
-      <!-- Clear Uploads Section -->
-      <div class="mb-2">
-        <h4 class="text-sm font-semibold text-gray-700 mb-2">数据管理</h4>
-        <p class="text-xs text-gray-500 mb-3">清空所有上传的图片和导出的文件</p>
-        <button
-          @click="clearAllUploads"
-          class="w-full px-3 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-        >
-          清空所有文件
-        </button>
       </div>
 
       <!-- Divider -->
@@ -305,7 +246,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['upload-click', 'mark-pass', 'mark-fail', 'stats-update', 'detection-click', 'delete-selected-detections', 'clear-all-history', 'model-changed'])
+const emit = defineEmits(['upload-click', 'mark-pass', 'mark-fail', 'stats-update', 'detection-click', 'detection-hover', 'delete-selected-detections'])
 
 // Refs
 const canvasRef = ref(null)
@@ -327,7 +268,6 @@ const canvasHeight = ref(0)
 
 // Box settings state
 const showBoxSettingsPanel = ref(false)
-const isModelSwitching = ref(false)
 
 // Destructure box style state from global state
 const {
@@ -335,13 +275,8 @@ const {
   boxFillColor,
   boxLineWidth,
   boxFontSize,
-  setBoxStrokeColor,
-  setBoxFillColor,
   setBoxLineWidth,
   setBoxFontSize,
-  availableModels,
-  currentModelKey,
-  setCurrentModel,
   getClassColor,
   getClassName
 } = state
@@ -445,49 +380,10 @@ function hideBoxSettings() {
   showBoxSettingsPanel.value = false
 }
 
-async function handleModelChange(modelKey) {
-  if (isModelSwitching.value) return
-
-  isModelSwitching.value = true
-
-  // Emit event for parent to handle the actual switch
-  emit('model-changed', modelKey)
-
-  // Note: Parent component (App.vue) will call setModelSwitching(false)
-  // after the API call completes via the setModelSwitching exposed method
-}
-
 function resetBoxStyles() {
   // 只重置线宽和字号，颜色由类别自动确定
   setBoxLineWidth(2)
   setBoxFontSize(12)
-}
-
-async function clearAllUploads() {
-  if (!confirm('确定要清空所有上传的图片和导出的文件吗？此操作不可恢复！')) {
-    return
-  }
-
-  try {
-    const response = await fetch('/api/clear_all_uploads', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-
-    const result = await response.json()
-
-    if (result.success) {
-      alert(`清空成功！已删除 ${result.upload_count} 个上传文件和 ${result.output_count} 个导出文件。`)
-      // Emit event to clear history in parent component
-      emit('clear-all-history')
-    } else {
-      alert(`清空失败: ${result.error}`)
-    }
-  } catch (error) {
-    alert(`清空失败: ${error.message}`)
-  }
 }
 
 function handleMouseDown(e) {
@@ -723,7 +619,6 @@ defineExpose({
   zoomIn,
   zoomOut,
   render,
-  showBoxSettings,
-  setModelSwitching: (value) => { isModelSwitching.value = value }
+  showBoxSettings
 })
 </script>

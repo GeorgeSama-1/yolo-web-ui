@@ -190,6 +190,7 @@ export function useDetectionState() {
     state.history.value = []
     state.historyStatus.value = {}
     state.selectedHistoryItems.value.clear()
+    state.folderExpandedState.value = {}
   }
 
   // ==================== Selection Actions ====================
@@ -294,12 +295,11 @@ export function useDetectionState() {
     console.log('🎨 Generating class color map for classes:', classes)
     console.log('🎨 Class IDs:', classIds)
 
-    // 为每个类别分配颜色
-    // 二分类：abnormal(0)用红色，normal(1)用绿色
+    // 为每个类别分配固定颜色，具体类别名称由当前模型决定
     const predefinedColors = [
-      { stroke: '#ef4444', fill: 'rgba(239, 68, 68, 0.2)' },  // 红色 - abnormal (有问题)
-      { stroke: '#22c55e', fill: 'rgba(34, 197, 94, 0.2)' },  // 绿色 - normal (正常)
-      { stroke: '#f59e0b', fill: 'rgba(245, 158, 11, 0.2)' },  // 橙色 - 第三类别
+      { stroke: '#ef4444', fill: 'rgba(239, 68, 68, 0.2)' },
+      { stroke: '#22c55e', fill: 'rgba(34, 197, 94, 0.2)' },
+      { stroke: '#f59e0b', fill: 'rgba(245, 158, 11, 0.2)' },
       { stroke: '#3b82f6', fill: 'rgba(59, 130, 246, 0.2)' }, // 蓝色
       { stroke: '#8b5cf6', fill: 'rgba(139, 92, 246, 0.2)' }, // 紫色
       { stroke: '#ec4899', fill: 'rgba(236, 72, 153, 0.2)' }, // 粉色
@@ -364,8 +364,6 @@ export function useDetectionState() {
 
   function getClassName(classId) {
     const className = state.modelClasses.value[classId] || `class_${classId}`
-    console.log(`🏷️ getClassName: classId=${classId} -> className=${className}`)
-    console.log(`  Available modelClasses:`, state.modelClasses.value)
     return className
   }
 

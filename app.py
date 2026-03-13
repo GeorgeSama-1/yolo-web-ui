@@ -20,6 +20,8 @@ import io
 from datetime import datetime
 import os
 import sys
+from detection_processing import apply_priority_suppression
+from model_bootstrap import pick_current_model_key
 
 # 添加父目录到 Python 路径，以便导入 config
 sys.path.append(str(Path(__file__).parent.parent))
@@ -188,9 +190,12 @@ def discover_models():
 AVAILABLE_MODELS = discover_models()
 
 # 当前使用的模型
-# 使用最新的模型（第一个）作为默认模型
-current_model_key = list(AVAILABLE_MODELS.keys())[0] if AVAILABLE_MODELS else None
+# 使用最新的模型（第一个）作为默认模型；没有模型时允许服务以空状态启动
+current_model_key = pick_current_model_key(AVAILABLE_MODELS)
 model = None
+DEFAULT_IOU_THRESHOLD = 0.3
+ABNORMAL_PRIORITY_MARGIN = 0.1
+MIN_PREDICT_CONFIDENCE = 0.001
 
 def get_model_classes(model_obj):
     """
@@ -211,6 +216,73 @@ def get_model_classes(model_obj):
     except Exception as e:
         print(f"Warning: 无法获取模型类别信息: {e}")
         return {0: 'insulator'}
+
+def get_default_class_name(model_obj):
+    """返回当前模型的默认类别名，用于通用回退。"""
+    classes = get_model_classes(model_obj)
+
+    if not classes:
+        return 'class_0'
+
+    if isinstance(classes, dict):
+        first_key = sorted(classes.keys(), key=lambda value: int(value) if str(value).isdigit() else str(value))[0]
+        return classes[first_key]
+
+    return 'class_0'
+
+
+def run_detection(image_path, confidence_threshold=None, iou_threshold=None):
+    confidence_threshold = CONFIDENCE_THRESHOLD if confidence_threshold is None else float(confidence_threshold)
+    iou_threshold = DEFAULT_IOU_THRESHOLD if iou_threshold is None else float(iou_threshold)
+
+    if model is None:
+        raise RuntimeError('当前没有可用模型')
+
+    results = model.predict(
+        str(image_path),
+        conf=MIN_PREDICT_CONFIDENCE,
+        iou=iou_threshold,
+        verbose=False
+    )
+    result = results[0]
+    model_classes = get_model_classes(model)
+
+    detections = []
+    for box in result.boxes:
+        xyxy = box.xyxy[0].cpu().numpy()
+        cls_id = int(box.cls[0])
+        conf = float(box.conf[0])
+
+        if conf < confidence_threshold:
+            continue
+
+        class_name = model_classes.get(cls_id, f'class_{cls_id}')
+        detections.append({
+            'id': len(detections) + 1,
+            'class_id': cls_id,
+            'class_name': class_name,
+            'confidence': conf,
+            'bbox': xyxy.tolist()
+        })
+
+    detections = apply_priority_suppression(
+        detections,
+        iou_threshold=iou_threshold,
+        abnormal_margin=ABNORMAL_PRIORITY_MARGIN
+    )
+
+    class_counts = {}
+    for detection in detections:
+        class_name = detection['class_name']
+        class_counts[class_name] = class_counts.get(class_name, 0) + 1
+
+    return {
+        'detections': detections,
+        'class_counts': class_counts,
+        'model_classes': model_classes,
+        'confidence_threshold': confidence_threshold,
+        'iou_threshold': iou_threshold
+    }
 
 def load_model(model_key):
     """加载指定的模型"""
@@ -245,7 +317,10 @@ def load_model(model_key):
     return model_info
 
 # 初始化加载默认模型
-load_model(current_model_key)
+if current_model_key is not None:
+    load_model(current_model_key)
+else:
+    print("⚠️ 未发现可用模型，服务将以空模型状态启动。")
 
 print("=" * 60)
 print("绝缘子检测 Web UI (Vue 3 + Vite 版本)")
@@ -302,8 +377,16 @@ def serve_assets(filename):
 def get_models():
     """获取所有可用模型列表"""
     # 重新扫描模型（确保显示最新状态）
-    global AVAILABLE_MODELS
+    global AVAILABLE_MODELS, current_model_key, model
     AVAILABLE_MODELS = discover_models()
+    current_model_key = pick_current_model_key(AVAILABLE_MODELS, current_model_key)
+
+    if current_model_key is not None and model is None:
+        try:
+            load_model(current_model_key)
+        except Exception as e:
+            print(f"Warning: 自动加载模型失败: {e}")
+            model = None
 
     models_list = []
     for key, info in AVAILABLE_MODELS.items():
@@ -362,6 +445,15 @@ def switch_model():
 def get_classes():
     """获取当前模型的类别信息"""
     try:
+        if model is None:
+            return jsonify({
+                'success': True,
+                'classes': {},
+                'num_classes': 0,
+                'model_key': current_model_key,
+                'model_name': 'No Model Loaded'
+            })
+
         classes = get_model_classes(model)
         model_info = AVAILABLE_MODELS.get(current_model_key, {})
 
@@ -388,6 +480,9 @@ def upload_image():
     file = request.files['image']
     if file.filename == '':
         return jsonify({'error': '没有选择文件'}), 400
+
+    if model is None:
+        return jsonify({'error': '当前没有可用模型，请先添加或切换模型'}), 503
 
     try:
         # 保存上传的图片
@@ -420,35 +515,14 @@ def upload_image():
         # 读取原图用于返回
         original_img = cv2.imread(str(image_path))
 
-        # YOLO 推理
-        results = model.predict(str(image_path), conf=0.25)
-        result = results[0]
-
-        # 获取模型类别信息
-        model_classes = get_model_classes(model)
-
-        # 提取检测框信息（不绘制到图片上）
-        detections = []
-        for box in result.boxes:
-            xyxy = box.xyxy[0].cpu().numpy()
-            x1, y1, x2, y2 = map(int, xyxy)
-            cls_id = int(box.cls[0])
-            conf = float(box.conf[0])
-
-            # 过滤低置信度检测框
-            if conf < CONFIDENCE_THRESHOLD:
-                continue
-
-            # 从模型中获取真实的类别名称
-            class_name = model_classes.get(cls_id, f'class_{cls_id}')
-
-            detections.append({
-                'id': len(detections) + 1,  # 重新编号
-                'class_id': cls_id,
-                'class_name': class_name,  # 使用真实类别名称
-                'confidence': conf,
-                'bbox': xyxy.tolist()  # [x1, y1, x2, y2] 边界框坐标
-            })
+        detection_result = run_detection(
+            image_path,
+            confidence_threshold=CONFIDENCE_THRESHOLD,
+            iou_threshold=DEFAULT_IOU_THRESHOLD
+        )
+        detections = detection_result['detections']
+        class_counts = detection_result['class_counts']
+        model_classes = detection_result['model_classes']
 
         # 返回原图而不是绘制后的图片
         # 将原图转换为 base64 用于前端显示
@@ -465,12 +539,6 @@ def upload_image():
 
         # 获取当前使用的模型信息
         model_info = AVAILABLE_MODELS.get(current_model_key, {})
-
-        # 统计各类别的检测数量
-        class_counts = {}
-        for det in detections:
-            class_name = det['class_name']
-            class_counts[class_name] = class_counts.get(class_name, 0) + 1
 
         return jsonify({
             'success': True,
@@ -494,6 +562,49 @@ def upload_image():
 
     except Exception as e:
         return jsonify({'error': f'处理失败: {str(e)}'}), 500
+
+
+@app.route('/api/redetect', methods=['POST'])
+def redetect_image():
+    """使用当前模型和临时阈值重新检测已上传的图片。"""
+    try:
+        if model is None:
+            return jsonify({'error': '当前没有可用模型，请先添加或切换模型'}), 503
+
+        data = request.get_json()
+        if not data or 'image_path' not in data:
+            return jsonify({'error': '缺少 image_path 参数'}), 400
+
+        image_path = UPLOAD_FOLDER / data['image_path']
+        if not image_path.exists():
+            return jsonify({'error': '图片文件不存在'}), 404
+
+        detection_result = run_detection(
+            image_path,
+            confidence_threshold=data.get('confidence_threshold', CONFIDENCE_THRESHOLD),
+            iou_threshold=data.get('iou_threshold', DEFAULT_IOU_THRESHOLD)
+        )
+
+        model_info = AVAILABLE_MODELS.get(current_model_key, {})
+
+        return jsonify({
+            'success': True,
+            'image_path': data['image_path'],
+            'detections': detection_result['detections'],
+            'total_count': len(detection_result['detections']),
+            'class_counts': detection_result['class_counts'],
+            'confidence_threshold': detection_result['confidence_threshold'],
+            'iou_threshold': detection_result['iou_threshold'],
+            'model_info': {
+                'key': current_model_key,
+                'name': model_info.get('name', 'Unknown'),
+                'description': model_info.get('description', ''),
+                'classes': detection_result['model_classes'],
+                'num_classes': len(detection_result['model_classes'])
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': f'重新检测失败: {str(e)}'}), 500
 
 
 @app.route('/api/reload_image', methods=['POST'])
@@ -596,7 +707,7 @@ def export_labelme():
         for det in data['detections']:
             x1, y1, x2, y2 = det['bbox']
             labelme_data['shapes'].append({
-                'label': det.get('class_name', 'insulator'),
+                'label': det.get('class_name', get_default_class_name(model)),
                 'points': [
                     [x1, y1],
                     [x2, y2]
@@ -707,7 +818,7 @@ def batch_export_labelme():
                 for det in item['detections']:
                     x1, y1, x2, y2 = det['bbox']
                     labelme_data['shapes'].append({
-                        'label': det.get('class_name', 'insulator'),
+                        'label': det.get('class_name', get_default_class_name(model)),
                         'points': [
                             [x1, y1],
                             [x2, y2]
@@ -881,9 +992,9 @@ def delete_detection():
         original_count = len(detections)
 
         # 过滤检测框
-        filtered_detections = [d for d in detections if d['label'] == 'insulator' and d.get('id', -1) == detection_id]
+        filtered_detections = [d for d in detections if d.get('id', -1) != detection_id]
 
-        if not filtered_detections:
+        if len(filtered_detections) == original_count:
             return jsonify({'error': '未找到指定的检测框'}), 404
 
         # 更新检测框列表

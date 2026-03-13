@@ -177,7 +177,7 @@ const {
 } = state
 
 // Emit for parent actions
-const emit = defineEmits(['delete-selected', 'open-comparison'])
+const emit = defineEmits(['delete-selected', 'open-comparison', 'clear-history'])
 
 // Computed
 const totalCount = computed(() => history.value.length)
@@ -260,7 +260,7 @@ function clearAllHistory() {
     return
   }
 
-  clearHistory()
+  emit('clear-history')
 }
 </script>
 

@@ -1,0 +1,43 @@
+import { describe, expect, it, vi } from 'vitest'
+import { deleteSelectedDetectionsOnServer, prepareComparisonItems } from '@/utils/appHelpers'
+
+describe('appHelpers', () => {
+  it('reloads missing comparison images before opening the comparison view', async () => {
+    const reloadImage = vi.fn(async (imagePath) => ({
+      success: true,
+      image_base64: `reloaded:${imagePath}`
+    }))
+
+    const items = [
+      { imageName: 'ready.jpg', imageBase64: 'cached', path: '/tmp/ready.jpg' },
+      { imageName: 'missing.jpg', imageBase64: null, path: '/tmp/missing.jpg' }
+    ]
+
+    const result = await prepareComparisonItems(items, reloadImage)
+
+    expect(reloadImage).toHaveBeenCalledTimes(1)
+    expect(result[0].imageBase64).toBe('cached')
+    expect(result[1].imageBase64).toBe('reloaded:/tmp/missing.jpg')
+  })
+
+  it('deletes selected detections through the backend and reindexes the survivors', async () => {
+    const deleteDetection = vi.fn(async () => ({ success: true }))
+    const detections = [
+      { id: 1, bbox: [0, 0, 10, 10], confidence: 0.9 },
+      { id: 2, bbox: [10, 10, 20, 20], confidence: 0.8 },
+      { id: 3, bbox: [20, 20, 30, 30], confidence: 0.7 }
+    ]
+
+    const result = await deleteSelectedDetectionsOnServer({
+      imagePath: '/tmp/example.jpg',
+      detections,
+      selectedIds: new Set([2]),
+      deleteDetection
+    })
+
+    expect(deleteDetection).toHaveBeenCalledWith('/tmp/example.jpg', 2)
+    expect(result.deletedCount).toBe(1)
+    expect(result.detections.map(d => d.id)).toEqual([1, 2])
+    expect(result.detections.map(d => d.confidence)).toEqual([0.9, 0.7])
+  })
+})

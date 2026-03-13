@@ -5,6 +5,7 @@
       <SidebarHistory
         @delete-selected="handleDeleteSelectedHistory"
         @open-comparison="openComparisonPanel"
+        @clear-history="handleClearHistoryOnly"
       />
     </template>
 
@@ -27,8 +28,6 @@
         @detection-click="handleDetectionClick"
         @detection-hover="handleDetectionHover"
         @delete-selected-detections="handleDeleteSelectedDetections"
-        @clear-all-history="handleClearAllHistory"
-        @model-changed="handleModelChange"
       />
     </template>
 
@@ -37,18 +36,23 @@
       <SidebarControls
         ref="controlsRef"
         :current-image-path="currentImagePath"
+        :current-image-name="currentImageName"
         :current-detections="currentDetections"
-        :current-image-item="currentImageItem"
         :status-value="currentStatusValue"
         :detection-count="currentInsulatorCount"
         :avg-confidence="currentAvgConfidence"
         :is-batch-processing="isBatchProcessing"
         :processed-count="processedCount"
         :total-files-to-process="totalFilesToProcess"
+        :is-redetecting="isRedetecting"
+        :is-model-switching="isModelSwitching"
         @upload-files="handleUploadFiles"
+        @model-changed="handleModelChange"
+        @redetect-current="handleRedetectCurrent"
         @export-current="handleExportCurrent"
         @batch-export="handleBatchExport"
         @stop-processing="handleStopProcessing"
+        @clear-all-uploads="handleClearAllUploads"
       />
     </template>
   </MainLayout>
@@ -75,13 +79,13 @@ import SidebarControls from '@/components/SidebarControls.vue'
 import Toast from '@/components/shared/Toast.vue'
 import { useDetectionState } from '@/composables/useDetectionState'
 import * as api from '@/api'
+import { buildComparisonHtml, deleteSelectedDetectionsOnServer, prepareComparisonItems } from '@/utils/appHelpers'
 
 // State management
 const state = useDetectionState()
 
 // Refs
 const canvasViewerRef = ref(null)
-const controlsRef = ref(null)
 const fileInputRef = ref(null)
 const folderInputRef = ref(null)
 
@@ -92,6 +96,8 @@ const currentInsulatorCount = ref('-')
 const currentStatusValue = ref('-')
 const userSelectedHistory = ref(false) // Track if user manually selected a history item
 const isReloadingImage = ref(false) // Track image reload state
+const isRedetecting = ref(false)
+const isModelSwitching = ref(false)
 
 // Toast state
 const toast = reactive({
@@ -402,11 +408,11 @@ async function handleUploadFiles(files) {
 // Handle model change
 async function handleModelChange(modelKey) {
   if (!modelKey || modelKey === currentModelKey.value) {
-    canvasViewerRef.value?.setModelSwitching(false)
     return
   }
 
   try {
+    isModelSwitching.value = true
     const data = await api.switchModel(modelKey)
     if (data.success) {
       setCurrentModel(modelKey)
@@ -429,7 +435,7 @@ async function handleModelChange(modelKey) {
     console.error('Switch model error:', error)
     showToast('error', '切换模型失败', error.message)
   } finally {
-    canvasViewerRef.value?.setModelSwitching(false)
+    isModelSwitching.value = false
   }
 }
 
@@ -540,12 +546,47 @@ function handleClearAllHistory() {
   // Clear all history from state
   const { clearHistory } = state
   clearHistory()
+  clearFiles()
 
   // Clear current display
   clearCurrentDisplay()
   displayImageBase64.value = null
 
   // Clear selections
+  selectedDetectionBoxes.value.clear()
+  selectedHistoryItems.value.clear()
+}
+
+async function handleClearAllUploads() {
+  if (!confirm('确定要清空所有上传的图片和导出的文件吗？此操作不可恢复！')) {
+    return
+  }
+
+  try {
+    const result = await api.clearAllUploads()
+
+    if (!result.success) {
+      showToast('error', '清空失败', result.error || '未知错误')
+      return
+    }
+
+    handleClearAllHistory()
+    showToast(
+      'success',
+      '清空成功',
+      `已删除 ${result.upload_count ?? 0} 个上传文件和 ${result.output_count ?? 0} 个导出文件`
+    )
+  } catch (error) {
+    console.error('Clear uploads error:', error)
+    showToast('error', '清空失败', error.message)
+  }
+}
+
+function handleClearHistoryOnly() {
+  const { clearHistory } = state
+  clearHistory()
+  clearCurrentDisplay()
+  displayImageBase64.value = null
   selectedDetectionBoxes.value.clear()
   selectedHistoryItems.value.clear()
 }
@@ -580,6 +621,73 @@ function handleDetectionHover(detectionId) {
   setHoveredDetection(detectionId)
 }
 
+async function handleRedetectCurrent({ confidenceThreshold, iouThreshold }) {
+  if (!currentImagePath.value || isRedetecting.value) {
+    return
+  }
+
+  try {
+    isRedetecting.value = true
+    currentStatusValue.value = '重新检测中...'
+
+    const result = await api.redetectImage(
+      currentImagePath.value,
+      confidenceThreshold,
+      iouThreshold
+    )
+
+    if (result.model_info?.classes) {
+      setModelClasses(result.model_info.classes)
+    }
+
+    updateCurrentDetections(result.detections || [])
+    clearDetectionSelection()
+
+    const totalCount = result.total_count ?? result.detections.length
+    currentInsulatorCount.value = totalCount
+    currentAvgConfidence.value = result.detections.length > 0
+      ? (result.detections.reduce((sum, detection) => sum + detection.confidence, 0) / result.detections.length).toFixed(3)
+      : '-'
+    currentStatusValue.value = '重新检测完成'
+
+    if (currentImageItem.value) {
+      currentImageItem.value.detections = result.detections || []
+      currentImageItem.value.count = totalCount
+      if (result.class_counts) {
+        currentImageItem.value.classCounts = result.class_counts
+      }
+      if (result.model_info) {
+        currentImageItem.value.modelInfo = result.model_info
+      }
+    }
+
+    processedFiles.value.forEach(fileItem => {
+      if (fileItem.result?.image_path === currentImagePath.value) {
+        fileItem.result = {
+          ...fileItem.result,
+          detections: result.detections || [],
+          total_count: totalCount,
+          insulator_count: totalCount,
+          class_counts: result.class_counts || {},
+          model_info: result.model_info || fileItem.result.model_info
+        }
+      }
+    })
+
+    showToast(
+      'success',
+      '重新检测完成',
+      `confidence=${confidenceThreshold.toFixed(2)}, IoU=${iouThreshold.toFixed(2)}`
+    )
+  } catch (error) {
+    console.error('Redetect error:', error)
+    currentStatusValue.value = '重新检测失败'
+    showToast('error', '重新检测失败', error.message)
+  } finally {
+    isRedetecting.value = false
+  }
+}
+
 // Handle delete selected detections
 async function handleDeleteSelectedDetections() {
   if (selectedDetectionBoxes.value.size === 0) {
@@ -591,25 +699,41 @@ async function handleDeleteSelectedDetections() {
     return
   }
 
-  // Delete from local state first
-  const deletedCount = deleteSelectedDetections()
+  if (!currentImagePath.value) {
+    alert('当前图片没有可删除的检测数据！')
+    return
+  }
 
-  // Update statistics
-  if (currentImageItem.value && currentImageItem.value.detections) {
-    const newDetections = currentImageItem.value.detections
-    if (newDetections.length > 0) {
-      currentAvgConfidence.value = (newDetections.reduce((sum, d) => sum + d.confidence, 0) / newDetections.length).toFixed(3)
+  try {
+    const result = await deleteSelectedDetectionsOnServer({
+      imagePath: currentImagePath.value,
+      detections: currentDetections.value,
+      selectedIds: selectedDetectionBoxes.value,
+      deleteDetection: api.deleteDetection
+    })
+
+    updateCurrentDetections(result.detections)
+    if (currentImageItem.value) {
+      currentImageItem.value.count = result.detections.length
+    }
+    selectedDetectionBoxes.value.clear()
+
+    if (result.detections.length > 0) {
+      currentAvgConfidence.value = (result.detections.reduce((sum, d) => sum + d.confidence, 0) / result.detections.length).toFixed(3)
     } else {
       currentAvgConfidence.value = '-'
     }
-    currentInsulatorCount.value = newDetections.length
-  }
+    currentInsulatorCount.value = result.detections.length
 
-  alert(`已删除 ${deletedCount} 个检测框`)
+    alert(`已删除 ${result.deletedCount} 个检测框`)
+  } catch (error) {
+    console.error('Delete detections error:', error)
+    alert(`删除检测框失败: ${error.message}`)
+  }
 }
 
 // Open comparison panel
-function openComparisonPanel() {
+async function openComparisonPanel() {
   // Get selected history items
   const selectedItems = []
   selectedHistoryItems.value.forEach(index => {
@@ -629,119 +753,15 @@ function openComparisonPanel() {
     return
   }
 
+  const preparedItems = await prepareComparisonItems(selectedItems, api.reloadImage)
+
   // Create comparison panel
   const panel = window.open('', '_blank', 'width=1400,height=900')
-  panel.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>模型对比</title>
-      <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #1a1a2e; min-height: 100vh; }
-        h1 { color: #fff; text-align: center; padding: 10px 0 20px; margin: 0; }
-        .comparison-grid {
-          display: grid;
-          grid-template-columns: repeat(${Math.min(selectedItems.length, 2)}, 1fr);
-          gap: 20px;
-          max-width: 1400px;
-          margin: 0 auto;
-        }
-        .comparison-item {
-          background: #16213e;
-          border-radius: 12px;
-          overflow: hidden;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-        }
-        .item-header {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          padding: 15px 20px;
-          color: white;
-        }
-        .model-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-        .image-name { font-size: 13px; opacity: 0.9; }
-        .item-stats {
-          display: flex;
-          justify-content: space-around;
-          padding: 15px;
-          background: #0f3460;
-          color: #fff;
-        }
-        .stat { text-align: center; }
-        .stat-value { font-size: 28px; font-weight: bold; color: #e94560; }
-        .stat-label { font-size: 12px; color: #aaa; margin-top: 3px; }
-        .item-image {
-          width: 100%;
-          aspect-ratio: 4/3;
-          object-fit: contain;
-          background: #000;
-          display: block;
-        }
-        .item-detections {
-          padding: 15px;
-          max-height: 150px;
-          overflow-y: auto;
-          background: #1a1a2e;
-        }
-        .detection-item {
-          display: flex;
-          justify-content: space-between;
-          padding: 8px 12px;
-          margin: 5px 0;
-          background: #16213e;
-          border-radius: 6px;
-          color: #fff;
-          font-size: 13px;
-        }
-        .detection-conf { color: #4ade80; font-weight: 600; }
-      </style>
-    </head>
-    <body>
-      <h1>📊 模型检测结果对比 (${selectedItems.length} 张图片)</h1>
-      <div class="comparison-grid">
-        ${selectedItems.map(item => {
-          const avgConf = item.detections && item.detections.length > 0
-            ? (item.detections.reduce((sum, d) => sum + d.confidence, 0) / item.detections.length).toFixed(3)
-            : '-'
-          return `
-            <div class="comparison-item">
-              <div class="item-header">
-                <div class="model-name">${item.modelInfo ? item.modelInfo.name : '未知模型'}</div>
-                <div class="image-name">📷 ${item.imageName}</div>
-              </div>
-              <div class="item-stats">
-                <div class="stat">
-                  <div class="stat-value">${item.count}</div>
-                  <div class="stat-label">检测数量</div>
-                </div>
-                <div class="stat">
-                  <div class="stat-value">${avgConf}</div>
-                  <div class="stat-label">平均置信度</div>
-                </div>
-                <div class="stat">
-                  <div class="stat-value">${item.detections ? item.detections.length : 0}</div>
-                  <div class="stat-label">检测框数</div>
-                </div>
-              </div>
-              <img class="item-image" src="data:image/jpeg;base64,${item.imageBase64}" alt="${item.imageName}">
-              ${item.detections && item.detections.length > 0 ? `
-                <div class="item-detections">
-                  ${item.detections.slice(0, 10).map((d, i) => `
-                    <div class="detection-item">
-                      <span>检测 #${i + 1}</span>
-                      <span class="detection-conf">${(d.confidence * 100).toFixed(1)}%</span>
-                    </div>
-                  `).join('')}
-                  ${item.detections.length > 10 ? `<div class="detection-item"><span>... 还有 ${item.detections.length - 10} 个检测框</span></div>` : ''}
-                </div>
-              ` : ''}
-            </div>
-          `
-        }).join('')}
-      </div>
-    </body>
-    </html>
-  `)
+  if (!panel) {
+    showToast('error', '打开失败', '浏览器拦截了对比窗口，请允许弹窗后重试。')
+    return
+  }
+  panel.document.write(buildComparisonHtml(preparedItems))
   panel.document.close()
 }
 
