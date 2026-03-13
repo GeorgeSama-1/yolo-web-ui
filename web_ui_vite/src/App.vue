@@ -172,7 +172,6 @@ const {
   endBatchProcessing,
   incrementProcessedCount,
   deleteMultipleHistoryItems,
-  toggleDetectionBoxSelection,
   selectAllDetections,
   clearDetectionSelection,
   setHoveredDetection,
@@ -632,7 +631,12 @@ function handleStatsUpdate(stats) {
 
 // Handle detection box click
 function handleDetectionClick(detectionId) {
-  toggleDetectionBoxSelection(detectionId)
+  if (detectionId == null) {
+    clearDetectionSelection()
+    return
+  }
+
+  selectedDetectionBoxes.value = new Set([detectionId])
 }
 
 // Handle detection box hover

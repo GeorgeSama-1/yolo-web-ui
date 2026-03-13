@@ -343,6 +343,7 @@ const isDragging = ref(false)
 const isDraggingDetection = ref(false)
 const isResizingDetection = ref(false)
 const isDrawingDetection = ref(false)
+const suppressCanvasClick = ref(false)
 const dragStartX = ref(0)
 const dragStartY = ref(0)
 const dragDetectionStart = ref(null)
@@ -577,12 +578,13 @@ function getCanvasCoordinates(event) {
 }
 
 function emitDetectionBBoxUpdate(bbox) {
-  if (!selectedDetectionForEditing.value) {
+  const detectionId = dragDetectionStart.value?.detectionId ?? selectedDetectionForEditing.value?.id
+  if (!detectionId) {
     return
   }
 
   emit('update-detection-bbox', {
-    detectionId: selectedDetectionForEditing.value.id,
+    detectionId,
     bbox
   })
 }
@@ -644,13 +646,15 @@ function handleMouseDown(e) {
     return
   }
 
-  if (point && selectedDetectionForEditing.value) {
-    const selectedId = findBoxAtPosition(point.x, point.y)
-    if (selectedId === selectedDetectionForEditing.value.id) {
+  if (point) {
+    const clickedDetection = findDetectionAtPosition(point.x, point.y)
+    if (clickedDetection) {
+      emit('detection-click', clickedDetection.id)
       isDraggingDetection.value = true
       dragDetectionStart.value = {
+        detectionId: clickedDetection.id,
         point,
-        bbox: [...selectedDetectionForEditing.value.bbox]
+        bbox: [...clickedDetection.bbox]
       }
       return
     }
@@ -681,6 +685,7 @@ function handleMouseMove(e) {
       return
     }
 
+    suppressCanvasClick.value = true
     emitDetectionBBoxUpdate(
       resizeBBoxFromHandle({
         bbox: dragDetectionStart.value.bbox,
@@ -700,6 +705,7 @@ function handleMouseMove(e) {
       return
     }
 
+    suppressCanvasClick.value = true
     emitDetectionBBoxUpdate(
       moveBBox(
         dragDetectionStart.value.bbox,
@@ -779,6 +785,10 @@ function handleWheel(e) {
 
 function handleCanvasClick(e) {
   if (!hasImage.value || !canvasRef.value) return
+  if (suppressCanvasClick.value) {
+    suppressCanvasClick.value = false
+    return
+  }
 
   const rect = canvasRef.value.getBoundingClientRect()
   const scaleX = canvasWidth.value / rect.width
@@ -790,10 +800,18 @@ function handleCanvasClick(e) {
 
   if (clickedBox !== null) {
     emit('detection-click', clickedBox)
+    return
   }
+
+  emit('detection-click', null)
 }
 
 function findBoxAtPosition(x, y) {
+  const detection = findDetectionAtPosition(x, y)
+  return detection?.id ?? null
+}
+
+function findDetectionAtPosition(x, y) {
   if (!props.detections) return null
 
   for (let i = props.detections.length - 1; i >= 0; i--) {
@@ -801,7 +819,7 @@ function findBoxAtPosition(x, y) {
     const [x1, y1, x2, y2] = det.bbox
 
     if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-      return det.id
+      return det
     }
   }
 

@@ -3,6 +3,19 @@ import { describe, expect, it } from 'vitest'
 import CanvasViewer from '@/components/CanvasViewer.vue'
 import { useDetectionState } from '@/composables/useDetectionState'
 
+function setupCanvasGeometry(wrapper, { width = 100, height = 100 } = {}) {
+  const canvas = wrapper.find('canvas')
+  canvas.element.getBoundingClientRect = () => ({
+    left: 0,
+    top: 0,
+    width,
+    height,
+    right: width,
+    bottom: height
+  })
+  return canvas
+}
+
 describe('CanvasViewer', () => {
   it('declares and emits the detection-hover event', async () => {
     const wrapper = mount(CanvasViewer, {
@@ -77,6 +90,57 @@ describe('CanvasViewer', () => {
     await addButton.trigger('click')
 
     expect(addButton.text()).toContain('拖拽补框中')
+  })
+
+  it('starts dragging an original detection box on first mouse down like a label editor', async () => {
+    const wrapper = mount(CanvasViewer, {
+      props: {
+        detections: [
+          { id: 1, bbox: [10, 10, 50, 50], confidence: 0.92, class_id: 0, class_name: 'normal' }
+        ]
+      }
+    })
+
+    wrapper.vm.hasImage = true
+    wrapper.vm.canvasWidth = 100
+    wrapper.vm.canvasHeight = 100
+    await wrapper.vm.$nextTick()
+
+    const canvas = setupCanvasGeometry(wrapper)
+
+    await canvas.trigger('mousedown', { clientX: 20, clientY: 20 })
+    await canvas.trigger('mousemove', { clientX: 30, clientY: 30 })
+
+    expect(wrapper.emitted('detection-click')).toEqual([[1]])
+    expect(wrapper.emitted('update-detection-bbox')).toEqual([[
+      {
+        detectionId: 1,
+        bbox: [20, 20, 60, 60]
+      }
+    ]])
+  })
+
+  it('does not emit box updates when the pointer starts on empty canvas space', async () => {
+    const wrapper = mount(CanvasViewer, {
+      props: {
+        detections: [
+          { id: 1, bbox: [10, 10, 50, 50], confidence: 0.92, class_id: 0, class_name: 'normal' }
+        ]
+      }
+    })
+
+    wrapper.vm.hasImage = true
+    wrapper.vm.canvasWidth = 100
+    wrapper.vm.canvasHeight = 100
+    await wrapper.vm.$nextTick()
+
+    const canvas = setupCanvasGeometry(wrapper)
+
+    await canvas.trigger('mousedown', { clientX: 80, clientY: 80 })
+    await canvas.trigger('mousemove', { clientX: 90, clientY: 90 })
+    await canvas.trigger('mouseup', { clientX: 90, clientY: 90 })
+
+    expect(wrapper.emitted('update-detection-bbox')).toBeUndefined()
   })
 
   it('lets the user resize the selected detection from the correction panel', async () => {
