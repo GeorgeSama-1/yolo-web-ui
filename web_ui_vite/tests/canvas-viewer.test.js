@@ -137,6 +137,32 @@ describe('CanvasViewer', () => {
     ]])
   })
 
+  it('treats a tiny pointer jitter as a click instead of moving the box', async () => {
+    const wrapper = mount(CanvasViewer, {
+      props: {
+        detections: [
+          { id: 1, bbox: [10, 10, 50, 50], confidence: 0.92, class_id: 0, class_name: 'normal' }
+        ]
+      }
+    })
+
+    wrapper.vm.hasImage = true
+    wrapper.vm.canvasWidth = 100
+    wrapper.vm.canvasHeight = 100
+    await wrapper.vm.$nextTick()
+
+    const canvas = setupCanvasGeometry(wrapper)
+
+    await canvas.trigger('mousedown', { clientX: 20, clientY: 20 })
+    await canvas.trigger('mousemove', { clientX: 20, clientY: 19 })
+    await canvas.trigger('mouseup', { clientX: 20, clientY: 19 })
+    await canvas.trigger('click', { clientX: 20, clientY: 19 })
+
+    expect(wrapper.emitted('detection-click')).toBeTruthy()
+    expect(wrapper.emitted('detection-click').at(-1)).toEqual([1])
+    expect(wrapper.emitted('update-detection-bbox')).toBeUndefined()
+  })
+
   it('does not emit box updates when the pointer starts on empty canvas space', async () => {
     const wrapper = mount(CanvasViewer, {
       props: {

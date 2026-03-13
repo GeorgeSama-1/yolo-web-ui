@@ -268,6 +268,7 @@ import { createCenteredBBox, moveBBox, resizeBBoxFromHandle } from '@/utils/dete
 import { useDetectionState } from '@/composables/useDetectionState'
 
 const state = useDetectionState()
+const BOX_DRAG_THRESHOLD = 3
 
 const props = defineProps({
   imageBase64: {
@@ -594,7 +595,7 @@ function handleMouseDown(e) {
     const clickedDetection = findDetectionAtPosition(point.x, point.y)
     if (clickedDetection) {
       emit('detection-click', clickedDetection.id)
-      isDraggingDetection.value = true
+      isDraggingDetection.value = false
       dragDetectionStart.value = {
         detectionId: clickedDetection.id,
         point,
@@ -660,6 +661,31 @@ function handleMouseMove(e) {
       )
     )
     return
+  }
+
+  if (dragDetectionStart.value && !resizeHandle.value) {
+    const point = getCanvasCoordinates(e)
+    if (!point) {
+      return
+    }
+
+    const deltaX = point.x - dragDetectionStart.value.point.x
+    const deltaY = point.y - dragDetectionStart.value.point.y
+
+    if (Math.hypot(deltaX, deltaY) >= BOX_DRAG_THRESHOLD) {
+      isDraggingDetection.value = true
+      suppressCanvasClick.value = true
+      emitDetectionBBoxUpdate(
+        moveBBox(
+          dragDetectionStart.value.bbox,
+          deltaX,
+          deltaY,
+          canvasWidth.value,
+          canvasHeight.value
+        )
+      )
+      return
+    }
   }
 
   // Handle dragging
@@ -836,10 +862,10 @@ function render() {
 
       // Box style based on state - use custom styles or defaults
       if (isSelected) {
-        // Selected: bright green with thicker border
-        ctx.strokeStyle = '#22c55e'
-        ctx.lineWidth = Math.max(boxLineWidth.value + 2, 3)
-        ctx.fillStyle = 'rgba(34, 197, 94, 0.2)'
+        // Selected boxes keep their geometry unchanged; selection is shown by the overlay layer.
+        ctx.strokeStyle = classColor.stroke
+        ctx.lineWidth = boxLineWidth.value
+        ctx.fillStyle = classColor.fill
       } else if (isHovered) {
         // Hovered: bright yellow
         ctx.strokeStyle = '#eab308'
@@ -862,7 +888,7 @@ function render() {
       ctx.font = `${fontSize}px Arial`
       const textWidth = ctx.measureText(labelText).width
 
-      ctx.fillStyle = isSelected ? '#22c55e' : (isHovered ? '#eab308' : classColor.stroke)
+      ctx.fillStyle = isHovered ? '#eab308' : classColor.stroke
       ctx.fillRect(x1, y1 - fontSize - 4, textWidth + 8, fontSize + 4)
 
       // Draw label text
