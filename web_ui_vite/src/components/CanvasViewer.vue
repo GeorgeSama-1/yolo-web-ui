@@ -33,10 +33,10 @@
         <button
           v-if="hasImage"
           data-testid="add-detection-button"
-          @click="addDetection"
+          @click="toggleDrawDetectionMode"
           class="px-4 py-2 bg-amber-500 text-white rounded-lg cursor-pointer text-sm transition-all hover:bg-amber-600"
         >
-          + 补加框
+          {{ isDrawingDetection ? '拖拽补框中' : '+ 补加框' }}
         </button>
       </div>
 
@@ -178,6 +178,11 @@
             @mousedown.stop="startResizeDetection(handle.key, $event)"
           ></button>
         </div>
+        <div
+          v-if="draftDetectionBBox"
+          class="absolute border-2 border-dashed border-amber-400 bg-amber-300/20 pointer-events-none"
+          :style="draftDetectionOverlayStyle"
+        ></div>
       </div>
     </div>
 
@@ -337,10 +342,13 @@ const panY = ref(0)
 const isDragging = ref(false)
 const isDraggingDetection = ref(false)
 const isResizingDetection = ref(false)
+const isDrawingDetection = ref(false)
 const dragStartX = ref(0)
 const dragStartY = ref(0)
 const dragDetectionStart = ref(null)
 const resizeHandle = ref(null)
+const drawDetectionStart = ref(null)
+const draftDetectionBBox = ref(null)
 const originalImage = ref(null)
 const hasImage = ref(false)
 const isHoveringBox = ref(false)
@@ -444,6 +452,17 @@ const selectedDetectionOverlayStyle = computed(() => {
   }
 })
 
+const draftDetectionOverlayStyle = computed(() => {
+  if (!draftDetectionBBox.value) return {}
+  const [x1, y1, x2, y2] = draftDetectionBBox.value
+  return {
+    left: `${x1}px`,
+    top: `${y1}px`,
+    width: `${Math.max(x2 - x1, 0)}px`,
+    height: `${Math.max(y2 - y1, 0)}px`
+  }
+})
+
 const resizeHandles = computed(() => ([
   { key: 'nw', cursor: 'cursor-nwse-resize', style: { left: '-6px', top: '-6px' } },
   { key: 'ne', cursor: 'cursor-nesw-resize', style: { right: '-6px', top: '-6px' } },
@@ -536,10 +555,10 @@ function handleDetectionClassChange(nextClassId) {
   })
 }
 
-function addDetection() {
-  emit('add-detection', {
-    bbox: createCenteredBBox(canvasWidth.value || 400, canvasHeight.value || 300)
-  })
+function toggleDrawDetectionMode() {
+  isDrawingDetection.value = !isDrawingDetection.value
+  drawDetectionStart.value = null
+  draftDetectionBBox.value = null
 }
 
 function getCanvasCoordinates(event) {
@@ -606,10 +625,25 @@ function startResizeDetection(handle, event) {
   }
 }
 
+function createDraftBBox(startPoint, endPoint) {
+  return [
+    Math.max(Math.min(startPoint.x, endPoint.x), 0),
+    Math.max(Math.min(startPoint.y, endPoint.y), 0),
+    Math.min(Math.max(startPoint.x, endPoint.x), canvasWidth.value || 0),
+    Math.min(Math.max(startPoint.y, endPoint.y), canvasHeight.value || 0)
+  ]
+}
+
 function handleMouseDown(e) {
   if (!hasImage.value) return
 
   const point = getCanvasCoordinates(e)
+  if (isDrawingDetection.value && point) {
+    drawDetectionStart.value = point
+    draftDetectionBBox.value = [point.x, point.y, point.x, point.y]
+    return
+  }
+
   if (point && selectedDetectionForEditing.value) {
     const selectedId = findBoxAtPosition(point.x, point.y)
     if (selectedId === selectedDetectionForEditing.value.id) {
@@ -630,6 +664,16 @@ function handleMouseDown(e) {
 
 function handleMouseMove(e) {
   if (!hasImage.value) return
+
+  if (isDrawingDetection.value && drawDetectionStart.value) {
+    const point = getCanvasCoordinates(e)
+    if (!point) {
+      return
+    }
+
+    draftDetectionBBox.value = createDraftBBox(drawDetectionStart.value, point)
+    return
+  }
 
   if (isResizingDetection.value && dragDetectionStart.value && resizeHandle.value) {
     const point = getCanvasCoordinates(e)
@@ -701,6 +745,17 @@ function handleMouseUp() {
   isResizingDetection.value = false
   dragDetectionStart.value = null
   resizeHandle.value = null
+
+  if (isDrawingDetection.value && draftDetectionBBox.value) {
+    const [x1, y1, x2, y2] = draftDetectionBBox.value
+    if ((x2 - x1) >= 20 && (y2 - y1) >= 20) {
+      emit('add-detection', { bbox: draftDetectionBBox.value })
+    }
+  }
+
+  isDrawingDetection.value = false
+  drawDetectionStart.value = null
+  draftDetectionBBox.value = null
 }
 
 function handleMouseLeave() {
@@ -709,6 +764,9 @@ function handleMouseLeave() {
   isResizingDetection.value = false
   dragDetectionStart.value = null
   resizeHandle.value = null
+  isDrawingDetection.value = false
+  drawDetectionStart.value = null
+  draftDetectionBBox.value = null
   isHoveringBox.value = false
   emit('detection-hover', null)
 }

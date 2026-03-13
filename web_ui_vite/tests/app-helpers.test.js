@@ -45,6 +45,26 @@ describe('appHelpers', () => {
     expect(result.detections.map(d => d.confidence)).toEqual([0.9, 0.7])
   })
 
+  it('falls back to local deletion when no exported json exists yet', async () => {
+    const deleteDetection = vi.fn(async () => {
+      throw new Error('JSON 文件不存在')
+    })
+
+    const result = await deleteSelectedDetectionsOnServer({
+      imagePath: '/tmp/example.jpg',
+      detections: [
+        { id: 1, bbox: [0, 0, 10, 10], confidence: 0.9 },
+        { id: 2, bbox: [10, 10, 20, 20], confidence: 0.8 }
+      ],
+      selectedIds: new Set([1]),
+      deleteDetection
+    })
+
+    expect(result.deletedCount).toBe(1)
+    expect(result.usedLocalFallback).toBe(true)
+    expect(result.detections.map(d => d.id)).toEqual([1])
+  })
+
   it('builds an export payload that keeps corrected instance annotations for second-stage training', () => {
     const payload = buildExportAnnotationPayload({
       imagePath: '20260313_demo.jpg',

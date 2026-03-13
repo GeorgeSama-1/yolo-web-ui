@@ -65,28 +65,18 @@ describe('CanvasViewer', () => {
     ]])
   })
 
-  it('lets the user add a new detection box for manual correction', async () => {
-    const wrapper = mount(CanvasViewer, {
-      props: {
-        imageBase64: 'ZmFrZQ=='
-      }
-    })
+  it('enters draw mode so the user can drag out a custom detection box', async () => {
+    const wrapper = mount(CanvasViewer)
 
     wrapper.vm.hasImage = true
-    wrapper.vm.canvasWidth = 400
-    wrapper.vm.canvasHeight = 200
     await wrapper.vm.$nextTick()
 
     const addButton = wrapper.find('[data-testid="add-detection-button"]')
-    expect(addButton.exists()).toBe(true)
+    expect(addButton.text()).toContain('补加框')
 
     await addButton.trigger('click')
 
-    expect(wrapper.emitted('add-detection')).toEqual([[
-      {
-        bbox: [150, 50, 250, 150]
-      }
-    ]])
+    expect(addButton.text()).toContain('拖拽补框中')
   })
 
   it('lets the user resize the selected detection from the correction panel', async () => {

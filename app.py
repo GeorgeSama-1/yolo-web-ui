@@ -953,22 +953,37 @@ def delete_detection():
         with open(json_path, 'r', encoding='utf-8') as f:
             labelme_data = json.load(f)
 
-        # 查找并删除指定的检测框
-        detections = labelme_data.get('shapes', [])
-        original_count = len(detections)
+        metadata = labelme_data.setdefault('metadata', {})
+        instances = metadata.get('instances', [])
+        original_count = len(instances)
 
-        # 过滤检测框
-        filtered_detections = [d for d in detections if d.get('id', -1) != detection_id]
+        if instances:
+            filtered_instances = [instance for instance in instances if instance.get('id') != detection_id]
+            if len(filtered_instances) == original_count:
+                return jsonify({'error': '未找到指定的检测框'}), 404
 
-        if len(filtered_detections) == original_count:
-            return jsonify({'error': '未找到指定的检测框'}), 404
+            metadata['instances'] = filtered_instances
+            labelme_data['shapes'] = []
 
-        # 更新检测框列表
-        labelme_data['shapes'] = filtered_detections
+            for index, instance in enumerate(filtered_instances, start=1):
+                instance['id'] = index
+                x1, y1, x2, y2 = instance['bbox']
+                labelme_data['shapes'].append({
+                    'label': instance.get('class_name', get_default_class_name(model)),
+                    'points': [[x1, y1], [x2, y2]],
+                    'group_id': None,
+                    'shape_type': 'rectangle',
+                    'flags': {}
+                })
+        else:
+            detections = labelme_data.get('shapes', [])
+            if detection_id < 1 or detection_id > len(detections):
+                return jsonify({'error': '未找到指定的检测框'}), 404
 
-        # 重新编号检测框
-        for i, det in enumerate(labelme_data['shapes']):
-            det['id'] = i + 1
+            labelme_data['shapes'] = [
+                det for index, det in enumerate(detections, start=1)
+                if index != detection_id
+            ]
 
         # 保存更新后的 JSON
         with open(json_path, 'w', encoding='utf-8') as f:

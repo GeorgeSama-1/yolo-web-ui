@@ -63,11 +63,19 @@ export async function deleteSelectedDetectionsOnServer({
   deleteDetection
 }) {
   const ids = Array.from(selectedIds)
+  let usedLocalFallback = false
 
   for (const detectionId of ids) {
-    const result = await deleteDetection(imagePath, detectionId)
-    if (!result?.success) {
-      throw new Error(result?.error || `Failed to delete detection ${detectionId}`)
+    try {
+      const result = await deleteDetection(imagePath, detectionId)
+      if (!result?.success) {
+        throw new Error(result?.error || `Failed to delete detection ${detectionId}`)
+      }
+    } catch (error) {
+      if (!String(error?.message || '').includes('JSON 文件不存在')) {
+        throw error
+      }
+      usedLocalFallback = true
     }
   }
 
@@ -80,7 +88,8 @@ export async function deleteSelectedDetectionsOnServer({
 
   return {
     deletedCount: ids.length,
-    detections: remainingDetections
+    detections: remainingDetections,
+    usedLocalFallback
   }
 }
 
