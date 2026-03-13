@@ -22,6 +22,7 @@ import os
 import sys
 from detection_processing import apply_priority_suppression
 from model_bootstrap import pick_current_model_key
+from model_metadata import parse_experiment_name, summarize_model_info
 
 # 添加父目录到 Python 路径，以便导入 config
 sys.path.append(str(Path(__file__).parent.parent))
@@ -77,41 +78,6 @@ OUTPUT_FOLDER.mkdir(parents=True, exist_ok=True)
 # 加载模型
 os.environ['CUDA_VISIBLE_DEVICES'] = '6'  # 指定GPU 6进行推理
 
-# ==================== 模型配置 ====================
-def parse_experiment_name(exp_name):
-    """
-    解析实验目录名称，提取信息
-    """
-    parts = exp_name.split('_')
-
-    info = {
-        'timestamp': f"{parts[0]}_{parts[1]}",  # 日期时间
-        'task': parts[2] if len(parts) > 2 else 'unknown',  # 任务类型 (bbox)
-        'model': parts[3] if len(parts) > 3 else 'unknown',  # 模型名称 (yolo11x)
-        'num_classes': None,  # 类别数量（从标记中提取）
-    }
-
-    # 解析其他参数
-    for part in parts:
-        if part.startswith('exp'):
-            info['exp'] = part
-        elif part.endswith('class'):
-            # 提取类别数量（2class, 3class等）
-            try:
-                info['num_classes'] = int(part.replace('class', ''))
-            except:
-                pass
-        elif part.startswith('bs'):
-            info['batch_size'] = part[2:]  # bs8 -> 8
-        elif part.startswith('is'):
-            info['img_size'] = part[2:]  # is1280 -> 1280
-        elif part.startswith('gpu'):
-            info['gpu'] = part
-        elif part.startswith('data'):
-            info['data_version'] = part  # datav2, datav3
-
-    return info
-
 def discover_models():
     """
     自动扫描 experiments 目录，发现所有可用模型
@@ -130,51 +96,19 @@ def discover_models():
         # 解析实验名称
         info = parse_experiment_name(exp_name)
 
-        # 生成友好的模型名称
-        model_type = info.get('model', 'unknown').upper()
-        data_version = info.get('data_version', 'unknown')
-        img_size = info.get('img_size', '?')
-        batch_size = info.get('batch_size', '?')
-        exp_num = info.get('exp', '?')
-        num_classes = info.get('num_classes', None)
-
-        # 生成唯一key和描述
         key = exp_name
-
-        # 根据类别数量生成不同的名称
-        if num_classes is not None:
-            # 有明确的类别标记（2class, 3class等）
-            class_label = f"{num_classes}类"
-            name = f"{model_type} {class_label} ({data_version}"
-        else:
-            # 没有类别标记，假设是1类或旧模型
-            name = f"{model_type} ({data_version})"
-
-        if batch_size:
-            name += f" | BS{batch_size}"
-        if exp_num:
-            name += f" | Exp{exp_num}"
-
-        # 构建详细描述
-        desc_parts = []
-        if num_classes:
-            desc_parts.append(f"{num_classes}类")
-        desc_parts.append(f"Exp{exp_num.split('exp')[1] if 'exp' in exp_num else '?'}")
-        desc_parts.append(f"BS{batch_size}")
-        desc_parts.append(f"IS{img_size}")
-        if 'gpu' in info:
-            desc_parts.append(info['gpu'])
-        desc_parts.append(data_version)
-
-        description = ' '.join(desc_parts)
+        summary = summarize_model_info(info)
 
         models[key] = {
-            'name': name,
+            'name': summary['name'],
             'path': model_path,
-            'description': description,
+            'description': summary['description'],
             'exp_name': exp_name,
-            'num_classes': num_classes,
-            'exists': True
+            'num_classes': info.get('num_classes'),
+            'exists': True,
+            'is_baseline': info.get('is_baseline', False),
+            'baseline_tag': info.get('baseline_tag'),
+            'metadata': info,
         }
 
     # 按时间戳排序（最新的在前）

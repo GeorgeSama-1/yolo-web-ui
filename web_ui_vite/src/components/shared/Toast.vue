@@ -10,7 +10,8 @@
     >
       <div
         v-if="visible"
-        class="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 min-w-[320px] max-w-md relative overflow-hidden"
+        data-testid="toast"
+        class="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] flex min-w-[360px] max-w-[min(92vw,32rem)] items-center gap-3 overflow-hidden rounded-2xl border border-white/20 px-6 py-4 shadow-2xl shadow-slate-950/30 backdrop-blur-md"
         :class="typeClasses"
       >
         <!-- Progress bar background for loading type -->
@@ -96,11 +97,11 @@ let timer = null
 
 const typeClasses = computed(() => {
   const classes = {
-    success: 'bg-gradient-to-r from-green-500 to-green-600',
-    error: 'bg-gradient-to-r from-red-500 to-red-600',
-    info: 'bg-gradient-to-r from-blue-500 to-blue-600',
-    warning: 'bg-gradient-to-r from-yellow-500 to-orange-500',
-    loading: 'bg-gradient-to-r from-cyan-500 to-blue-600'
+    success: 'bg-gradient-to-r from-green-500/95 to-emerald-600/95',
+    error: 'bg-gradient-to-r from-red-500/95 to-rose-600/95',
+    info: 'bg-gradient-to-r from-blue-500/95 to-cyan-600/95',
+    warning: 'bg-gradient-to-r from-yellow-500/95 to-orange-500/95',
+    loading: 'bg-gradient-to-r from-cyan-500/95 to-blue-600/95'
   }
   return classes[props.type] || classes.info
 })
