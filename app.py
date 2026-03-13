@@ -21,6 +21,7 @@ from datetime import datetime
 import os
 import sys
 from detection_processing import apply_priority_suppression
+from export_naming import build_labelme_json_filename
 from model_bootstrap import pick_current_model_key
 from model_metadata import parse_experiment_name, summarize_model_info
 
@@ -668,19 +669,9 @@ def export_labelme():
                 'flags': {}
             })
 
-        # 获取模型信息（如果有）
-        model_info = data.get('model_info', {})
+        json_filename = build_labelme_json_filename(final_filename)
 
-        # 从模型名称中提取简短标识
-        model_suffix = ''
-        if model_info.get('name'):
-            model_name = model_info.get('name', '').lower()
-            # 简化模型名：移除空格和括号
-            model_suffix = '_' + model_name.replace(' ', '_').replace('(', '').replace(')', '').replace('|', '_')
-
-        json_filename = f"{image_path.stem}{model_suffix}.json"
-
-        # 保存 JSON 文件（使用带 model_suffix 的文件名）
+        # 保存 JSON 文件
         json_path = OUTPUT_FOLDER / json_filename
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(labelme_data, f, indent=2, ensure_ascii=False)
@@ -794,15 +785,8 @@ def batch_export_labelme():
                         'flags': {}
                     })
 
-                # 获取模型信息
-                model_info = item.get('model_info', {})
-                model_suffix = ''
-                if model_info.get('name'):
-                    model_name = model_info.get('name', '').lower()
-                    model_suffix = '_' + model_name.replace(' ', '_').replace('(', '').replace(')', '')
-
                 json_str = json.dumps(labelme_data, indent=2, ensure_ascii=False)
-                zip_file.writestr(f"{image_path.stem}{model_suffix}.json", json_str)
+                zip_file.writestr(build_labelme_json_filename(final_filename), json_str)
 
         # 生成 ZIP 文件名
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
