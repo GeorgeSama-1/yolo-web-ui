@@ -17,7 +17,8 @@
   - 宽高滑块微调
 - 基于导出的实例标注离线生成二阶段分类数据集
 - 直接从标准 LabelMe 矩形框标注离线生成二阶段分类数据集
-- 使用独立脚本训练二阶段分类模型
+- 使用 notebook 训练二阶段分类模型
+- 提供 notebook 版本的数据集检查、数据集生成、分类训练与两阶段推理流程
 
 ## 目录结构
 
@@ -27,10 +28,18 @@ yolo-web-ui/
 ├── model_bootstrap.py
 ├── model_metadata.py
 ├── detection_processing.py
-├── training/
-│   ├── build_insulator_cls_dataset.py
-│   └── train_insulator_classifier.py
-├── train_bbox_yolo.ipynb
+├── offline_workspace/
+│   ├── notebooks/
+│   │   ├── train_bbox_yolo.ipynb
+│   │   ├── build_insulator_cls_dataset.ipynb
+│   │   ├── review_labelme_annotations.ipynb
+│   │   ├── train_insulator_classifier.ipynb
+│   │   └── run_two_stage_inference.ipynb
+│   ├── datasets/
+│   │   ├── data_annotated_2class/
+│   │   ├── insulator_cls_dataset_standard/
+│   │   └── insulator_cls_dataset_tight/
+│   └── outputs/
 ├── uploads/
 ├── outputs/
 ├── tests/
@@ -85,7 +94,7 @@ http://localhost:5000
 
 使用现有 notebook：
 
-- [`train_bbox_yolo.ipynb`](/home/hujing/yolo-web-ui/train_bbox_yolo.ipynb)
+- [`train_bbox_yolo.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_bbox_yolo.ipynb)
 
 目标是先得到一个能够稳定框出绝缘子实例的模型。  
 如果你现在的数据是整图加绝缘子框标注，建议先做单类检测：
@@ -149,7 +158,18 @@ experiments/<timestamp>_<experiment_name>/weights/best.pt
 
 ### 第五步：生成二阶段分类数据集
 
-如果你使用的是 `web_ui` 导出的标注，继续按下面的命令执行即可。
+推荐直接使用 notebook：
+
+- [`build_insulator_cls_dataset.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/build_insulator_cls_dataset.ipynb)
+- [`review_labelme_annotations.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/review_labelme_annotations.ipynb)
+
+这些 notebook 已经按 cell 拆好：
+
+- 路径配置
+- 标注回框检查
+- standard 数据集生成
+- tight 数据集生成
+- summary 输出
 
 如果你手头已经有标准 LabelMe 数据集，也可以直接使用同一个脚本。当前脚本同时支持：
 
@@ -170,30 +190,10 @@ dataset/
 
 只要每个框都是单个绝缘子实例，且 `label` 是 `normal` / `abnormal`，就可以直接裁剪生成分类数据集。
 
-运行：
-
-```bash
-python -m training.build_insulator_cls_dataset \
-  --annotations-dir outputs \
-  --source-images-dir uploads \
-  --output-dir data/insulator_cls_dataset
-```
-
-可选参数示例：
-
-```bash
-python -m training.build_insulator_cls_dataset \
-  --annotations-dir outputs \
-  --source-images-dir uploads \
-  --output-dir data/insulator_cls_dataset \
-  --padding-ratio 0.08 \
-  --min-crop-size 24
-```
-
 输出目录类似：
 
 ```text
-data/insulator_cls_dataset/
+offline_workspace/datasets/insulator_cls_dataset_tight/
   train/
     normal/
     abnormal/
@@ -208,19 +208,19 @@ data/insulator_cls_dataset/
 
 ### 第六步：训练二阶段分类模型
 
-运行：
+推荐直接使用 notebook：
 
-```bash
-python -m training.train_insulator_classifier \
-  --dataset-dir data/insulator_cls_dataset \
-  --experiment-root experiments_cls \
-  --experiment-name insulator_cls_exp001 \
-  --model-weights yolo11n-cls.pt \
-  --epochs 100 \
-  --imgsz 224 \
-  --batch 32 \
-  --device 0
-```
+- [`train_insulator_classifier.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_insulator_classifier.ipynb)
+- [`run_two_stage_inference.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/run_two_stage_inference.ipynb)
+
+这些 notebook 已经按 cell 拆好：
+
+- 训练参数配置
+- 数据集检查
+- 训练配置生成
+- metadata 写入
+- 启动训练
+- 单张图片两阶段推理
 
 输出包括：
 
@@ -240,11 +240,13 @@ python -m training.train_insulator_classifier \
 ## 相关文件
 
 - 一阶段检测训练：
-  - [`train_bbox_yolo.ipynb`](/home/hujing/yolo-web-ui/train_bbox_yolo.ipynb)
+  - [`train_bbox_yolo.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_bbox_yolo.ipynb)
 - 二阶段数据集生成：
-  - [`build_insulator_cls_dataset.py`](/home/hujing/yolo-web-ui/training/build_insulator_cls_dataset.py)
+  - [`build_insulator_cls_dataset.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/build_insulator_cls_dataset.ipynb)
+  - [`review_labelme_annotations.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/review_labelme_annotations.ipynb)
 - 二阶段分类训练：
-  - [`train_insulator_classifier.py`](/home/hujing/yolo-web-ui/training/train_insulator_classifier.py)
+  - [`train_insulator_classifier.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_insulator_classifier.ipynb)
+  - [`run_two_stage_inference.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/run_two_stage_inference.ipynb)
 - 两阶段详细说明：
   - [`docs/two_stage_training.md`](/home/hujing/yolo-web-ui/docs/two_stage_training.md)
 
@@ -256,8 +258,7 @@ python -m training.train_insulator_classifier \
 python -m unittest tests/test_model_metadata.py \
   tests/test_detection_processing.py \
   tests/test_model_bootstrap.py \
-  tests/test_build_insulator_cls_dataset.py \
-  tests/test_train_insulator_classifier.py
+  tests/test_notebooks.py
 ```
 
 ### Frontend

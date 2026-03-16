@@ -9,12 +9,14 @@
 
 第一阶段训练文件保持不变：
 
-- [`train_bbox_yolo.ipynb`](/home/hujing/yolo-web-ui/train_bbox_yolo.ipynb)
+- [`train_bbox_yolo.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_bbox_yolo.ipynb)
 
-第二阶段新增独立文件：
+第二阶段统一使用 notebook：
 
-- [`build_insulator_cls_dataset.py`](/home/hujing/yolo-web-ui/training/build_insulator_cls_dataset.py)
-- [`train_insulator_classifier.py`](/home/hujing/yolo-web-ui/training/train_insulator_classifier.py)
+- [`build_insulator_cls_dataset.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/build_insulator_cls_dataset.ipynb)
+- [`review_labelme_annotations.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/review_labelme_annotations.ipynb)
+- [`train_insulator_classifier.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_insulator_classifier.ipynb)
+- [`run_two_stage_inference.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/run_two_stage_inference.ipynb)
 
 ## Step 1A: Detect And Correct In Web UI
 
@@ -51,7 +53,7 @@
 }
 ```
 
-这部分 `metadata.instances` 是第二阶段数据集生成脚本的直接输入。
+这部分 `metadata.instances` 是第二阶段数据集生成 notebook 的直接输入。
 
 ## Step 1B: Or Use An Existing LabelMe Dataset Directly
 
@@ -63,7 +65,7 @@
 - 每个矩形框都对应单个绝缘子实例
 - `label` 已经是 `normal` / `abnormal` 或其他你想训练的分类标签
 
-脚本现在同时支持两种输入：
+数据集生成 notebook 现在同时支持两种输入：
 
 - `web_ui` 导出的 `metadata.instances`
 - 标准 LabelMe 的 `shapes`
@@ -86,32 +88,24 @@ dataset/
 
 - 标注 JSON 放在 `outputs/annotations/` 或你自己的 LabelMe `annotations/`
 - 原始图片放在 `uploads/` 或你自己的 `images/`
-- 目标分类数据集放在 `data/insulator_cls_dataset/`
+- 目标分类数据集放在 `offline_workspace/datasets/insulator_cls_dataset_tight/`
 
-执行：
+打开 [`build_insulator_cls_dataset.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/build_insulator_cls_dataset.ipynb)，按顺序执行：
 
-```bash
-python -m training.build_insulator_cls_dataset \
-  --annotations-dir outputs/annotations \
-  --source-images-dir uploads \
-  --output-dir data/insulator_cls_dataset
-```
+1. 配置 `ANNOTATIONS_DIR`
+2. 配置 `SOURCE_IMAGES_DIR`
+3. 配置 `STANDARD_OUTPUT_DIR` 和 `TIGHT_OUTPUT_DIR`
+4. 运行 standard 数据集生成
+5. 运行 tight 数据集生成
 
-可选参数：
+如果你想先检查标注质量，再打开：
 
-```bash
-python -m training.build_insulator_cls_dataset \
-  --annotations-dir outputs/annotations \
-  --source-images-dir uploads \
-  --output-dir data/insulator_cls_dataset \
-  --padding-ratio 0.08 \
-  --min-crop-size 24
-```
+- [`review_labelme_annotations.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/review_labelme_annotations.ipynb)
 
 生成后的目录结构：
 
 ```text
-data/insulator_cls_dataset/
+offline_workspace/datasets/insulator_cls_dataset_tight/
   train/
     normal/
     abnormal/
@@ -126,19 +120,18 @@ data/insulator_cls_dataset/
 
 ## Step 3: Train The Second-Stage Classifier
 
-执行：
+打开 [`train_insulator_classifier.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_insulator_classifier.ipynb)，按顺序执行：
 
-```bash
-python -m training.train_insulator_classifier \
-  --dataset-dir data/insulator_cls_dataset \
-  --experiment-root experiments_cls \
-  --experiment-name insulator_cls_exp001 \
-  --model-weights yolo11n-cls.pt \
-  --epochs 100 \
-  --imgsz 224 \
-  --batch 32 \
-  --device 0
-```
+1. 配置 `DATASET_DIR`
+2. 配置 `EXPERIMENT_ROOT`
+3. 配置 `EXPERIMENT_NAME`
+4. 配置 `MODEL_WEIGHTS`
+5. 运行数据集检查
+6. 运行训练
+
+如果你要对单张图片执行完整两阶段推理，打开：
+
+- [`run_two_stage_inference.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/run_two_stage_inference.ipynb)
 
 输出内容：
 
@@ -153,9 +146,9 @@ python -m training.train_insulator_classifier \
 1. 二选一准备标注来源：
    - 用当前最佳的一阶段模型在 `web_ui` 中校正并导出
    - 或直接准备现成的标准 LabelMe 数据集
-2. 运行 `python -m training.build_insulator_cls_dataset`
+2. 运行 `build_insulator_cls_dataset.ipynb`
 3. 检查 `dataset_summary.json` 和抽样 crop 质量
-4. 再运行 `python -m training.train_insulator_classifier`
+4. 再运行 `train_insulator_classifier.ipynb`
 
 ## Practical Tips
 
