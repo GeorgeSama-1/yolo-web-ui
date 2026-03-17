@@ -9,7 +9,7 @@ class NotebookTests(unittest.TestCase):
         notebook_expectations = {
             "offline_workspace/notebooks/build_insulator_cls_dataset.ipynb": "def _build_split_assignments(",
             "offline_workspace/notebooks/review_labelme_annotations.ipynb": "offline_workspace/",
-            "offline_workspace/notebooks/train_insulator_classifier.ipynb": "offline_workspace/",
+            "offline_workspace/notebooks/train_insulator_classifier.ipynb": "'amp': False",
             "offline_workspace/notebooks/run_two_stage_inference.ipynb": "from ultralytics import YOLO",
         }
 
@@ -35,6 +35,9 @@ class NotebookTests(unittest.TestCase):
         self.assertIn("summary.json", inference_source)
         self.assertIn("abnormal", inference_source)
         self.assertIn("detections", inference_source)
+        self.assertIn("overview", inference_source)
+        self.assertIn("instances", inference_source)
+        self.assertIn("contact_sheet", inference_source)
 
 
 if __name__ == "__main__":
