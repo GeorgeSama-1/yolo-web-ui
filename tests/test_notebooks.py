@@ -7,7 +7,7 @@ class NotebookTests(unittest.TestCase):
     def test_training_notebooks_are_self_contained(self):
         root = Path(__file__).resolve().parent.parent
         notebook_expectations = {
-            "offline_workspace/notebooks/build_insulator_cls_dataset.ipynb": "def _build_split_assignments(",
+            "offline_workspace/notebooks/build_insulator_cls_dataset.ipynb": "def _build_split_assignments(image_labels",
             "offline_workspace/notebooks/augment_insulator_cls_dataset.ipynb": "AUGMENT_ABNORMAL_ONLY = True",
             "offline_workspace/notebooks/review_labelme_annotations.ipynb": "offline_workspace/",
             "offline_workspace/notebooks/train_insulator_classifier.ipynb": "'amp': False",
