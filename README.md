@@ -32,13 +32,15 @@ yolo-web-ui/
 │   ├── notebooks/
 │   │   ├── train_bbox_yolo.ipynb
 │   │   ├── build_insulator_cls_dataset.ipynb
+│   │   ├── augment_insulator_cls_dataset.ipynb
 │   │   ├── review_labelme_annotations.ipynb
 │   │   ├── train_insulator_classifier.ipynb
 │   │   └── run_two_stage_inference.ipynb
 │   ├── datasets/
 │   │   ├── data_annotated_2class/
 │   │   ├── insulator_cls_dataset_standard/
-│   │   └── insulator_cls_dataset_tight/
+│   │   ├── insulator_cls_dataset_tight/
+│   │   └── insulator_cls_dataset_augmented/
 │   └── outputs/
 ├── uploads/
 ├── outputs/
@@ -206,15 +208,27 @@ offline_workspace/datasets/insulator_cls_dataset_tight/
   dataset_summary.json
 ```
 
+如果你希望先做离线增强，再训练分类模型，使用：
+
+- [`augment_insulator_cls_dataset.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/augment_insulator_cls_dataset.ipynb)
+
+默认策略是：
+
+- 保留 `val/test` 不变
+- 只增强 `train/abnormal`
+- 生成新目录 `offline_workspace/datasets/insulator_cls_dataset_augmented`
+
 ### 第六步：训练二阶段分类模型
 
 推荐直接使用 notebook：
 
+- [`augment_insulator_cls_dataset.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/augment_insulator_cls_dataset.ipynb)
 - [`train_insulator_classifier.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_insulator_classifier.ipynb)
 - [`run_two_stage_inference.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/run_two_stage_inference.ipynb)
 
 这些 notebook 已经按 cell 拆好：
 
+- 少数类离线增强
 - 训练参数配置
 - 数据集检查
 - 训练配置生成
@@ -227,6 +241,10 @@ offline_workspace/datasets/insulator_cls_dataset_tight/
 - 分类模型训练结果
 - 实验输出目录
 - `classifier_experiment.json` 配置快照
+- `training_artifacts.json`
+- `results.png`
+- `confusion_matrix.png`
+- `confusion_matrix_normalized.png`
 
 ## 日常使用建议
 
@@ -243,6 +261,7 @@ offline_workspace/datasets/insulator_cls_dataset_tight/
   - [`train_bbox_yolo.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_bbox_yolo.ipynb)
 - 二阶段数据集生成：
   - [`build_insulator_cls_dataset.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/build_insulator_cls_dataset.ipynb)
+  - [`augment_insulator_cls_dataset.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/augment_insulator_cls_dataset.ipynb)
   - [`review_labelme_annotations.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/review_labelme_annotations.ipynb)
 - 二阶段分类训练：
   - [`train_insulator_classifier.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_insulator_classifier.ipynb)

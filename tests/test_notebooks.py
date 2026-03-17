@@ -8,6 +8,7 @@ class NotebookTests(unittest.TestCase):
         root = Path(__file__).resolve().parent.parent
         notebook_expectations = {
             "offline_workspace/notebooks/build_insulator_cls_dataset.ipynb": "def _build_split_assignments(",
+            "offline_workspace/notebooks/augment_insulator_cls_dataset.ipynb": "AUGMENT_ABNORMAL_ONLY = True",
             "offline_workspace/notebooks/review_labelme_annotations.ipynb": "offline_workspace/",
             "offline_workspace/notebooks/train_insulator_classifier.ipynb": "'amp': False",
             "offline_workspace/notebooks/run_two_stage_inference.ipynb": "from ultralytics import YOLO",
@@ -38,6 +39,16 @@ class NotebookTests(unittest.TestCase):
         self.assertIn("overview", inference_source)
         self.assertIn("instances", inference_source)
         self.assertIn("contact_sheet", inference_source)
+
+        train_source = "\n".join(
+            "".join(cell.get("source", []))
+            for cell in json.loads((root / "offline_workspace/notebooks/train_insulator_classifier.ipynb").read_text(encoding="utf-8")).get("cells", [])
+        )
+        self.assertIn("results.png", train_source)
+        self.assertIn("confusion_matrix.png", train_source)
+        self.assertIn("confusion_matrix_normalized.png", train_source)
+        self.assertIn("hsv_h", train_source)
+        self.assertIn("fliplr", train_source)
 
 
 if __name__ == "__main__":

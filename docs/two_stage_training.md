@@ -14,6 +14,7 @@
 第二阶段统一使用 notebook：
 
 - [`build_insulator_cls_dataset.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/build_insulator_cls_dataset.ipynb)
+- [`augment_insulator_cls_dataset.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/augment_insulator_cls_dataset.ipynb)
 - [`review_labelme_annotations.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/review_labelme_annotations.ipynb)
 - [`train_insulator_classifier.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_insulator_classifier.ipynb)
 - [`run_two_stage_inference.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/run_two_stage_inference.ipynb)
@@ -118,6 +119,24 @@ offline_workspace/datasets/insulator_cls_dataset_tight/
   dataset_summary.json
 ```
 
+## Step 2B: Build An Augmented Training Dataset
+
+如果你想缓解 `normal / abnormal` 不平衡，可以继续打开：
+
+- [`augment_insulator_cls_dataset.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/augment_insulator_cls_dataset.ipynb)
+
+默认策略：
+
+- 只增强 `train/abnormal`
+- 不改 `val/test`
+- 输出到 `offline_workspace/datasets/insulator_cls_dataset_augmented/`
+
+推荐顺序：
+
+1. 先用 `build_insulator_cls_dataset.ipynb` 生成基础数据集
+2. 再用 `augment_insulator_cls_dataset.ipynb` 生成增强版数据集
+3. 最后在训练 notebook 中把 `DATASET_DIR` 指到增强版目录
+
 ## Step 3: Train The Second-Stage Classifier
 
 打开 [`train_insulator_classifier.ipynb`](/home/hujing/yolo-web-ui/offline_workspace/notebooks/train_insulator_classifier.ipynb)，按顺序执行：
@@ -128,6 +147,13 @@ offline_workspace/datasets/insulator_cls_dataset_tight/
 4. 配置 `MODEL_WEIGHTS`
 5. 运行数据集检查
 6. 运行训练
+
+训练完成后还会自动整理这些结果：
+
+- `results.png`
+- `confusion_matrix.png`
+- `confusion_matrix_normalized.png`
+- `training_artifacts.json`
 
 如果你要对单张图片执行完整两阶段推理，打开：
 
@@ -148,13 +174,16 @@ offline_workspace/datasets/insulator_cls_dataset_tight/
    - 或直接准备现成的标准 LabelMe 数据集
 2. 运行 `build_insulator_cls_dataset.ipynb`
 3. 检查 `dataset_summary.json` 和抽样 crop 质量
-4. 再运行 `train_insulator_classifier.ipynb`
+4. 按需运行 `augment_insulator_cls_dataset.ipynb`
+5. 再运行 `train_insulator_classifier.ipynb`
 
 ## Practical Tips
 
 - 如果第二阶段目标是分类，不要偷懒直接用一阶段检测输出做训练，最好经过人工校正
 - 如果你已经有质量可靠的 LabelMe 二分类框标注，可以直接拿来裁剪生成分类数据集
 - 分类数据集切分应按原图稳定划分，避免同一张原图的 crop 同时进入 train 和 val
+- 对你当前这类 `normal / abnormal` 不平衡数据，优先考虑“只增强 `train/abnormal`”
 - 建议先从 `normal / abnormal` 二分类跑通，再考虑更细缺陷标签
 - 如果 crop 太紧，优先调 `--padding-ratio`
 - 如果小框很多被跳过，检查 `dataset_summary.json` 中的 `skip_reasons`
+- 训练时重点关注 `abnormal recall`，不要只看 overall accuracy
