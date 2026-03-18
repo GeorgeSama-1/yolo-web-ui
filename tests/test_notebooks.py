@@ -39,6 +39,7 @@ class NotebookTests(unittest.TestCase):
         self.assertIn("overview", inference_source)
         self.assertIn("instances", inference_source)
         self.assertIn("contact_sheet", inference_source)
+        self.assertIn("stage1_bbox", inference_source)
 
         train_source = "\n".join(
             "".join(cell.get("source", []))

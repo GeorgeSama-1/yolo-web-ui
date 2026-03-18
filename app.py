@@ -24,6 +24,7 @@ from detection_processing import apply_priority_suppression
 from export_naming import build_labelme_json_filename
 from model_bootstrap import pick_current_model_key
 from model_metadata import parse_experiment_name, summarize_model_info
+from two_stage_classification import classify_detections_on_image, merge_two_stage_predictions
 
 # 添加父目录到 Python 路径，以便导入 config
 sys.path.append(str(Path(__file__).parent.parent))
@@ -36,11 +37,19 @@ VUE_DIST_DIR = WEB_UI_DIR / 'web_ui_vite' / 'dist'
 
 # 导入配置
 try:
-    from config import (
-        BASE_DIR, MODEL_PATH, CONFIDENCE_THRESHOLD,
-        UPLOAD_FOLDER, OUTPUT_FOLDER, HOST, PORT, DEBUG,
-        MAX_CONTENT_LENGTH, MAX_HISTORY
-    )
+    import config as app_config
+
+    BASE_DIR = app_config.BASE_DIR
+    MODEL_PATH = app_config.MODEL_PATH
+    CONFIDENCE_THRESHOLD = app_config.CONFIDENCE_THRESHOLD
+    UPLOAD_FOLDER = app_config.UPLOAD_FOLDER
+    OUTPUT_FOLDER = app_config.OUTPUT_FOLDER
+    HOST = app_config.HOST
+    PORT = app_config.PORT
+    DEBUG = app_config.DEBUG
+    MAX_CONTENT_LENGTH = app_config.MAX_CONTENT_LENGTH
+    MAX_HISTORY = app_config.MAX_HISTORY
+    CLASSIFICATION_MODEL_PATH = getattr(app_config, 'CLASSIFICATION_MODEL_PATH', None)
 except ImportError:
     # 如果配置文件不存在，使用默认配置
     BASE_DIR = Path(__file__).parent
@@ -53,6 +62,7 @@ except ImportError:
     DEBUG = True
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024
     MAX_HISTORY = 20
+    CLASSIFICATION_MODEL_PATH = None
 
 app = Flask(__name__, static_folder=str(VUE_DIST_DIR / 'assets'), template_folder=str(VUE_DIST_DIR))
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
@@ -128,9 +138,11 @@ AVAILABLE_MODELS = discover_models()
 # 使用最新的模型（第一个）作为默认模型；没有模型时允许服务以空状态启动
 current_model_key = pick_current_model_key(AVAILABLE_MODELS)
 model = None
+classification_model = None
 DEFAULT_IOU_THRESHOLD = 0.3
 ABNORMAL_PRIORITY_MARGIN = 0.1
 MIN_PREDICT_CONFIDENCE = 0.001
+CLASSIFICATION_PADDING_RATIO = 0.02
 
 def get_model_classes(model_obj):
     """
@@ -152,6 +164,19 @@ def get_model_classes(model_obj):
         print(f"Warning: 无法获取模型类别信息: {e}")
         return {0: 'insulator'}
 
+
+def get_classification_classes(model_obj):
+    if model_obj is None:
+        return {}
+
+    try:
+        if hasattr(model_obj, 'names') and model_obj.names:
+            return model_obj.names
+    except Exception as e:
+        print(f"Warning: 无法获取分类模型类别信息: {e}")
+
+    return {}
+
 def get_default_class_name(model_obj):
     """返回当前模型的默认类别名，用于通用回退。"""
     classes = get_model_classes(model_obj)
@@ -164,6 +189,57 @@ def get_default_class_name(model_obj):
         return classes[first_key]
 
     return 'class_0'
+
+
+def load_classification_model():
+    global classification_model
+
+    if not CLASSIFICATION_MODEL_PATH:
+        classification_model = None
+        return None
+
+    model_path = Path(CLASSIFICATION_MODEL_PATH)
+    if not model_path.exists():
+        print(f"⚠️ 分类模型文件不存在，跳过二阶段分类: {model_path}")
+        classification_model = None
+        return None
+
+    print(f"正在加载分类模型: {model_path}...")
+    classification_model = YOLO(str(model_path))
+    print(f"分类模型加载完成: {model_path}")
+    print(f"分类类别映射: {get_classification_classes(classification_model)}")
+    return classification_model
+
+
+def enrich_with_two_stage_result(image_path, detection_result):
+    if classification_model is None or not detection_result['detections']:
+        detection_result['two_stage_enabled'] = False
+        detection_result['normal_count'] = 0
+        detection_result['abnormal_count'] = 0
+        detection_result['stage1_total_count'] = len(detection_result['detections'])
+        detection_result['display_classes'] = detection_result['model_classes']
+        return detection_result
+
+    classifications = classify_detections_on_image(
+        image_path=image_path,
+        detections=detection_result['detections'],
+        classification_model=classification_model,
+        padding_ratio=CLASSIFICATION_PADDING_RATIO,
+    )
+    merged_result = merge_two_stage_predictions(detection_result['detections'], classifications)
+
+    classification_classes = get_classification_classes(classification_model)
+    detection_result.update({
+        'detections': merged_result['detections'],
+        'class_counts': merged_result['class_counts'],
+        'two_stage_enabled': merged_result['two_stage_enabled'],
+        'normal_count': merged_result['normal_count'],
+        'abnormal_count': merged_result['abnormal_count'],
+        'stage1_total_count': merged_result['stage1_total_count'],
+        'display_classes': classification_classes or detection_result['model_classes'],
+        'classification_classes': classification_classes,
+    })
+    return detection_result
 
 
 def run_detection(image_path, confidence_threshold=None, iou_threshold=None):
@@ -256,6 +332,8 @@ if current_model_key is not None:
     load_model(current_model_key)
 else:
     print("⚠️ 未发现可用模型，服务将以空模型状态启动。")
+
+load_classification_model()
 
 print("=" * 60)
 print("绝缘子检测 Web UI (Vue 3 + Vite 版本)")
@@ -389,7 +467,7 @@ def get_classes():
                 'model_name': 'No Model Loaded'
             })
 
-        classes = get_model_classes(model)
+        classes = get_classification_classes(classification_model) or get_model_classes(model)
         model_info = AVAILABLE_MODELS.get(current_model_key, {})
 
         return jsonify({
@@ -397,7 +475,8 @@ def get_classes():
             'classes': classes,
             'num_classes': len(classes),
             'model_key': current_model_key,
-            'model_name': model_info.get('name', 'Unknown')
+            'model_name': model_info.get('name', 'Unknown'),
+            'two_stage_enabled': classification_model is not None
         })
     except Exception as e:
         return jsonify({'error': f'获取类别信息失败: {str(e)}'}), 500
@@ -455,9 +534,10 @@ def upload_image():
             confidence_threshold=CONFIDENCE_THRESHOLD,
             iou_threshold=DEFAULT_IOU_THRESHOLD
         )
+        detection_result = enrich_with_two_stage_result(image_path, detection_result)
         detections = detection_result['detections']
         class_counts = detection_result['class_counts']
-        model_classes = detection_result['model_classes']
+        display_classes = detection_result.get('display_classes', detection_result['model_classes'])
 
         # 返回原图而不是绘制后的图片
         # 将原图转换为 base64 用于前端显示
@@ -486,12 +566,19 @@ def upload_image():
             'detections': detections,
             'total_count': len(detections),
             'class_counts': class_counts,  # 各类别统计
+            'stage1_total_count': detection_result.get('stage1_total_count', len(detections)),
+            'two_stage_enabled': detection_result.get('two_stage_enabled', False),
+            'normal_count': detection_result.get('normal_count', 0),
+            'abnormal_count': detection_result.get('abnormal_count', 0),
             'model_info': {
                 'key': current_model_key,
                 'name': model_info.get('name', 'Unknown'),
                 'description': model_info.get('description', ''),
-                'classes': model_classes,  # 添加类别映射
-                'num_classes': len(model_classes)
+                'classes': display_classes,
+                'num_classes': len(display_classes),
+                'stage1_classes': detection_result['model_classes'],
+                'classification_classes': detection_result.get('classification_classes', {}),
+                'two_stage_enabled': detection_result.get('two_stage_enabled', False)
             }
         })
 
@@ -520,7 +607,9 @@ def redetect_image():
             iou_threshold=data.get('iou_threshold', DEFAULT_IOU_THRESHOLD)
         )
 
+        detection_result = enrich_with_two_stage_result(image_path, detection_result)
         model_info = AVAILABLE_MODELS.get(current_model_key, {})
+        display_classes = detection_result.get('display_classes', detection_result['model_classes'])
 
         return jsonify({
             'success': True,
@@ -528,14 +617,21 @@ def redetect_image():
             'detections': detection_result['detections'],
             'total_count': len(detection_result['detections']),
             'class_counts': detection_result['class_counts'],
+            'stage1_total_count': detection_result.get('stage1_total_count', len(detection_result['detections'])),
+            'two_stage_enabled': detection_result.get('two_stage_enabled', False),
+            'normal_count': detection_result.get('normal_count', 0),
+            'abnormal_count': detection_result.get('abnormal_count', 0),
             'confidence_threshold': detection_result['confidence_threshold'],
             'iou_threshold': detection_result['iou_threshold'],
             'model_info': {
                 'key': current_model_key,
                 'name': model_info.get('name', 'Unknown'),
                 'description': model_info.get('description', ''),
-                'classes': detection_result['model_classes'],
-                'num_classes': len(detection_result['model_classes'])
+                'classes': display_classes,
+                'num_classes': len(display_classes),
+                'stage1_classes': detection_result['model_classes'],
+                'classification_classes': detection_result.get('classification_classes', {}),
+                'two_stage_enabled': detection_result.get('two_stage_enabled', False)
             }
         })
     except Exception as e:

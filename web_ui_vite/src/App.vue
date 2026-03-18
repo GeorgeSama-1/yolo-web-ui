@@ -43,6 +43,9 @@
         :current-detections="currentDetections"
         :status-value="currentStatusValue"
         :detection-count="currentInsulatorCount"
+        :normal-count="currentNormalCount"
+        :abnormal-count="currentAbnormalCount"
+        :two-stage-enabled="currentTwoStageEnabled"
         :avg-confidence="currentAvgConfidence"
         :is-batch-processing="isBatchProcessing"
         :processed-count="processedCount"
@@ -102,6 +105,9 @@ const displayImageBase64 = ref(null)
 const currentAvgConfidence = ref('-')
 const currentInsulatorCount = ref('-')
 const currentStatusValue = ref('-')
+const currentNormalCount = ref(0)
+const currentAbnormalCount = ref(0)
+const currentTwoStageEnabled = ref(false)
 const userSelectedHistory = ref(false) // Track if user manually selected a history item
 const isReloadingImage = ref(false) // Track image reload state
 const isRedetecting = ref(false)
@@ -229,6 +235,9 @@ watch(currentImageItem, async (newItem, oldItem) => {
     // The userSelectedHistory flag prevents unwanted updates in handleUploadFiles
     displayImageBase64.value = newItem.imageBase64
     currentInsulatorCount.value = newItem.count !== undefined ? newItem.count : '-'
+    currentNormalCount.value = newItem.normalCount ?? 0
+    currentAbnormalCount.value = newItem.abnormalCount ?? 0
+    currentTwoStageEnabled.value = newItem.twoStageEnabled ?? false
 
     if (!isBatchProcessing.value) {
       currentStatusValue.value = '检测完成'
@@ -250,6 +259,9 @@ watch(currentImageItem, async (newItem, oldItem) => {
   } else {
     displayImageBase64.value = null
     currentInsulatorCount.value = '-'
+    currentNormalCount.value = 0
+    currentAbnormalCount.value = 0
+    currentTwoStageEnabled.value = false
     currentAvgConfidence.value = '-'
     currentStatusValue.value = '-'
   }
@@ -373,6 +385,10 @@ async function handleUploadFiles(files) {
         console.log('  Detections count:', result.detections?.length || 0)
         if (result.detections && result.detections.length > 0) {
           console.log('  First detection:', result.detections[0])
+        }
+
+        if (result.model_info?.classes) {
+          setModelClasses(result.model_info.classes)
         }
 
         // Update file item status
@@ -723,8 +739,11 @@ async function handleRedetectCurrent({ confidenceThreshold, iouThreshold }) {
     updateCurrentDetections(result.detections || [])
     clearDetectionSelection()
 
-    const totalCount = result.total_count ?? result.detections.length
+    const totalCount = result.stage1_total_count ?? result.total_count ?? result.detections.length
     currentInsulatorCount.value = totalCount
+    currentNormalCount.value = result.normal_count ?? 0
+    currentAbnormalCount.value = result.abnormal_count ?? 0
+    currentTwoStageEnabled.value = result.two_stage_enabled ?? false
     currentAvgConfidence.value = result.detections.length > 0
       ? (result.detections.reduce((sum, detection) => sum + detection.confidence, 0) / result.detections.length).toFixed(3)
       : '-'
@@ -733,6 +752,9 @@ async function handleRedetectCurrent({ confidenceThreshold, iouThreshold }) {
     if (currentImageItem.value) {
       currentImageItem.value.detections = result.detections || []
       currentImageItem.value.count = totalCount
+      currentImageItem.value.normalCount = result.normal_count ?? 0
+      currentImageItem.value.abnormalCount = result.abnormal_count ?? 0
+      currentImageItem.value.twoStageEnabled = result.two_stage_enabled ?? false
       if (result.class_counts) {
         currentImageItem.value.classCounts = result.class_counts
       }
@@ -748,6 +770,10 @@ async function handleRedetectCurrent({ confidenceThreshold, iouThreshold }) {
           detections: result.detections || [],
           total_count: totalCount,
           insulator_count: totalCount,
+          stage1_total_count: totalCount,
+          normal_count: result.normal_count ?? 0,
+          abnormal_count: result.abnormal_count ?? 0,
+          two_stage_enabled: result.two_stage_enabled ?? false,
           class_counts: result.class_counts || {},
           model_info: result.model_info || fileItem.result.model_info
         }

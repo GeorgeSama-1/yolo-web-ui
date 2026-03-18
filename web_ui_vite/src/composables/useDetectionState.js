@@ -111,9 +111,13 @@ export function useDetectionState() {
       thumbnailBase64: result.thumbnail_base64 || result.image_base64?.substring(0, 5000), // Use thumbnail or truncated preview
       imageName: displayName,
       fullName: originalPath,
-      count: result.insulator_count,
+      count: result.stage1_total_count ?? result.total_count ?? result.insulator_count,
       path: result.image_path,
       detections: result.detections,
+      normalCount: result.normal_count ?? 0,
+      abnormalCount: result.abnormal_count ?? 0,
+      twoStageEnabled: result.two_stage_enabled ?? false,
+      classCounts: result.class_counts || {},
       timestamp: new Date().toLocaleTimeString(),
       folderName: folderName,
       modelInfo: modelInfo

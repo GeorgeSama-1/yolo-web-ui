@@ -28,6 +28,9 @@ describe('SidebarControls', () => {
         currentImagePath: 'example.jpg',
         currentDetections: [{ id: 1 }],
         detectionCount: 1,
+        normalCount: 1,
+        abnormalCount: 0,
+        twoStageEnabled: true,
         avgConfidence: '0.95',
         statusValue: '检测完成',
         isBatchProcessing: false,
@@ -49,5 +52,8 @@ describe('SidebarControls', () => {
     expect(wrapper.text()).toContain('检测状态')
     expect(wrapper.text()).toContain('检测数量')
     expect(wrapper.text()).toContain('平均置信度')
+    expect(wrapper.text()).toContain('二阶段结果')
+    expect(wrapper.text()).toContain('正常数量')
+    expect(wrapper.text()).toContain('异常数量')
   })
 })

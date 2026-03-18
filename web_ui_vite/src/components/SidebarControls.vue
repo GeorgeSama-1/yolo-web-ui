@@ -70,6 +70,24 @@
         </div>
       </section>
 
+      <section
+        v-if="props.twoStageEnabled"
+        class="rounded-2xl border border-rose-500/15 bg-slate-900/80 p-4 shadow-lg shadow-slate-950/20"
+      >
+        <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-rose-300/70">Two Stage</div>
+        <h3 class="text-sm font-semibold text-cyan-50 mt-1 mb-3">二阶段结果</h3>
+        <div class="grid grid-cols-2 gap-2.5">
+          <StatCard
+            label="正常数量"
+            :value="props.normalCount"
+          />
+          <StatCard
+            label="异常数量"
+            :value="props.abnormalCount"
+          />
+        </div>
+      </section>
+
       <section class="rounded-2xl border border-amber-500/20 bg-slate-900/80 p-4">
         <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-300/70">Current Image</div>
         <div class="flex items-start justify-between gap-3 mt-1 mb-3">
@@ -272,6 +290,18 @@ const props = defineProps({
   avgConfidence: {
     type: [Number, String],
     default: '-'
+  },
+  twoStageEnabled: {
+    type: Boolean,
+    default: false
+  },
+  normalCount: {
+    type: [Number, String],
+    default: 0
+  },
+  abnormalCount: {
+    type: [Number, String],
+    default: 0
   },
   isBatchProcessing: {
     type: Boolean,

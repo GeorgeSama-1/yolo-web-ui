@@ -14,6 +14,7 @@ BASE_DIR = CURRENT_DIR.parent
 
 # 模型配置（使用 web_ui 内的模型）
 MODEL_PATH = CURRENT_DIR / 'models' / 'best_v2.pt'
+CLASSIFICATION_MODEL_PATH = None
 CONFIDENCE_THRESHOLD = 0  # 置信度阈值
 
 # 目录配置（使用相对路径）
