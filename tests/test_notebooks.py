@@ -40,6 +40,9 @@ class NotebookTests(unittest.TestCase):
         self.assertIn("instances", inference_source)
         self.assertIn("contact_sheet", inference_source)
         self.assertIn("stage1_bbox", inference_source)
+        self.assertIn("Normal:", inference_source)
+        self.assertIn("Abnormal:", inference_source)
+        self.assertIn("rounded_rectangle", inference_source)
 
         train_source = "\n".join(
             "".join(cell.get("source", []))
