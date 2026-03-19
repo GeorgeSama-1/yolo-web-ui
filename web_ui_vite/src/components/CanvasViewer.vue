@@ -1,77 +1,151 @@
 <template>
   <section class="flex-1 min-w-0 bg-white flex flex-col relative overflow-hidden">
     <!-- Toolbar -->
-    <div class="flex items-center justify-between gap-2.5 px-3 py-2 bg-white border-b border-gray-200 flex-shrink-0">
+    <div class="flex items-center justify-between gap-3 border-b border-cyan-500/20 bg-slate-950 px-4 py-3 text-cyan-50 flex-shrink-0">
       <div class="flex items-center gap-2.5">
         <button
           @click="zoomIn"
-          class="px-4 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer text-sm transition-all hover:bg-blue-50 hover:border-primary"
+          class="rounded-xl border border-cyan-500/20 bg-slate-900 px-4 py-2 text-sm text-cyan-50 transition-all hover:border-cyan-400 hover:bg-slate-800"
         >
-          🔍+ 放大
+          放大
         </button>
         <button
           @click="zoomOut"
-          class="px-4 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer text-sm transition-all hover:bg-blue-50 hover:border-primary"
+          class="rounded-xl border border-cyan-500/20 bg-slate-900 px-4 py-2 text-sm text-cyan-50 transition-all hover:border-cyan-400 hover:bg-slate-800"
         >
-          🔍- 缩小
+          缩小
         </button>
         <button
           @click="fitToWindow"
-          class="px-4 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer text-sm transition-all hover:bg-blue-50 hover:border-primary"
+          class="rounded-xl border border-cyan-500/20 bg-slate-900 px-4 py-2 text-sm text-cyan-50 transition-all hover:border-cyan-400 hover:bg-slate-800"
         >
-          ⊙ 适应窗口
+          适应窗口
         </button>
         <button
           @click="actualSize"
-          class="px-4 py-2 bg-white border-gray-300 rounded-lg cursor-pointer text-sm transition-all hover:bg-blue-50 hover:border-primary"
+          class="rounded-xl border border-cyan-500/20 bg-slate-900 px-4 py-2 text-sm text-cyan-50 transition-all hover:border-cyan-400 hover:bg-slate-800"
         >
           1:1 实际尺寸
         </button>
-        <div class="px-4 py-2 bg-gray-50 rounded-lg text-sm text-gray-600 min-w-20 text-center">
+        <div class="min-w-20 rounded-xl border border-cyan-500/20 bg-slate-900 px-4 py-2 text-center text-sm text-cyan-200">
           {{ zoomPercent }}
         </div>
         <button
           v-if="hasImage"
           data-testid="add-detection-button"
           @click="toggleDrawDetectionMode"
-          class="px-4 py-2 bg-amber-500 text-white rounded-lg cursor-pointer text-sm transition-all hover:bg-amber-600"
+          class="rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-amber-400"
         >
           {{ isDrawingDetection ? '拖拽补框中' : '+ 补加框' }}
         </button>
       </div>
 
-      <div
-        class="px-4 py-2 bg-gradient-to-r from-primary to-secondary text-white rounded-lg text-sm font-semibold overflow-hidden text-ellipsis whitespace-nowrap max-w-md"
-      >
-        {{ currentImageName || '未选择图片' }}
+      <div class="min-w-0 max-w-md rounded-2xl border border-cyan-500/20 bg-slate-900/90 px-4 py-2">
+        <div class="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-400/80">Workbench</div>
+        <div class="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-cyan-50">
+          {{ currentImageName || '未选择图片' }}
+        </div>
       </div>
     </div>
 
     <!-- Detection Info -->
-    <div v-if="hasImage" class="px-4 py-2 bg-blue-50 border-b border-blue-200 flex items-center justify-between flex-shrink-0">
-      <div class="flex items-center gap-4 text-sm">
-        <span class="text-gray-600">检测框: <span class="font-semibold text-blue-600">{{ detectionCount }}</span> 个</span>
-        <span class="text-gray-600">已选中: <span class="font-semibold text-green-600">{{ selectedCount }}</span> 个</span>
-        <!-- Class breakdown -->
-        <div v-if="classBreakdown.length > 0" class="flex items-center gap-2">
-          <span class="text-gray-600">类别:</span>
-          <span
-            v-for="item in classBreakdown"
-            :key="item.classId"
-            class="px-2 py-0.5 rounded text-xs font-semibold text-white"
-            :style="{ backgroundColor: item.color }"
+    <div v-if="hasImage" class="border-b border-cyan-500/20 bg-slate-950/95 px-4 py-3 flex-shrink-0">
+      <div class="mb-3 flex items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-2 text-sm">
+          <span class="rounded-full bg-cyan-500/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-300">主工作台</span>
+          <span class="rounded-full border border-cyan-500/20 bg-slate-900 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200">流程总线</span>
+        </div>
+        <button
+          v-if="selectedCount > 0"
+          @click="$emit('delete-selected-detections')"
+          class="rounded-xl bg-rose-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-400"
+        >
+          删除选中 ({{ selectedCount }})
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
+        <div class="rounded-2xl border border-cyan-500/20 bg-slate-900/90 px-4 py-3">
+          <div class="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-400/80">Stage 1</div>
+          <div class="mt-1 text-sm font-semibold text-cyan-50">阶段 1 检测</div>
+          <div class="mt-3 flex items-end justify-between gap-4">
+            <div>
+              <div class="text-xs text-slate-400">一阶段数量</div>
+              <div class="mt-1 text-2xl font-semibold text-cyan-300">{{ detectionCount }}</div>
+            </div>
+            <div class="rounded-xl border border-cyan-500/10 bg-slate-950/70 px-3 py-2">
+              <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500">Result</div>
+              <div class="mt-1 text-sm text-cyan-100">当前结果</div>
+            </div>
+          </div>
+          <div v-if="classBreakdown.length > 0" class="mt-3 flex flex-wrap items-center gap-2">
+            <span class="text-xs text-slate-400">类别摘要</span>
+            <span
+              v-for="item in classBreakdown"
+              :key="item.classId"
+              class="rounded-full px-2 py-1 text-[11px] font-semibold text-white"
+              :style="{ backgroundColor: item.color }"
+            >
+              {{ item.className }}: {{ item.count }}
+            </span>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-fuchsia-500/20 bg-slate-900/90 px-4 py-3">
+          <div class="text-[11px] font-semibold uppercase tracking-[0.22em] text-fuchsia-300/80">Stage 2</div>
+          <div class="mt-1 text-sm font-semibold text-cyan-50">阶段 2 分类</div>
+          <template v-if="props.twoStageEnabled">
+            <div class="mt-3 grid grid-cols-2 gap-3">
+              <div class="rounded-xl border border-emerald-500/15 bg-slate-950/70 px-3 py-2">
+                <div class="text-[11px] uppercase tracking-[0.2em] text-emerald-300/70">Normal</div>
+                <div class="mt-1 text-xs text-slate-400">二阶段正常</div>
+                <div class="mt-1 text-xl font-semibold text-emerald-300">{{ props.normalCount }}</div>
+              </div>
+              <div class="rounded-xl border border-rose-500/15 bg-slate-950/70 px-3 py-2">
+                <div class="text-[11px] uppercase tracking-[0.2em] text-rose-300/70">Abnormal</div>
+                <div class="mt-1 text-xs text-slate-400">二阶段异常</div>
+                <div class="mt-1 text-xl font-semibold text-rose-300">{{ props.abnormalCount }}</div>
+              </div>
+            </div>
+          </template>
+          <div
+            v-else
+            class="mt-3 rounded-xl border border-fuchsia-500/10 bg-slate-950/70 px-3 py-3 text-sm text-slate-300"
           >
-            {{ item.className }}: {{ item.count }}
-          </span>
+            <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500">Classifier</div>
+            <div class="mt-1 font-medium text-fuchsia-200">未启用分类</div>
+            <div class="mt-1 text-xs text-slate-500">当前页面仅显示一阶段检测结果。</div>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-amber-500/20 bg-slate-900/90 px-4 py-3">
+          <div class="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-300/80">Selection</div>
+          <div class="mt-1 text-sm font-semibold text-cyan-50">当前选中</div>
+          <div class="mt-3 flex items-end justify-between gap-4">
+            <div>
+              <div class="text-xs text-slate-400">选中实例</div>
+              <div class="mt-1 text-2xl font-semibold text-amber-300">{{ selectedCount }}</div>
+            </div>
+            <div class="rounded-xl border border-amber-500/10 bg-slate-950/70 px-3 py-2 text-right">
+              <div class="text-[11px] uppercase tracking-[0.2em] text-slate-500">Focus</div>
+              <div class="mt-1 text-sm text-amber-100">{{ selectedDetectionHeadline }}</div>
+            </div>
+          </div>
         </div>
       </div>
-      <button
-        v-if="selectedCount > 0"
-        @click="$emit('delete-selected-detections')"
-        class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
-      >
-        删除选中 ({{ selectedCount }})
-      </button>
+    </div>
+
+    <div
+      v-if="hasImage"
+      class="border-b border-cyan-500/10 bg-slate-950/85 px-4 py-2 text-xs text-slate-400 flex items-center justify-between gap-4 flex-shrink-0"
+    >
+      <div class="flex items-center gap-2">
+        <span class="rounded-full border border-cyan-500/20 bg-slate-900 px-2 py-1 uppercase tracking-[0.18em] text-cyan-300">Workflow</span>
+        <span>检测模型先输出绝缘子框，再由分类模型判定 normal / abnormal。</span>
+      </div>
+      <div class="text-cyan-200">
+        {{ props.twoStageEnabled ? '当前显示为两阶段归属结果' : '当前显示为一阶段归属结果' }}
+      </div>
     </div>
 
     <div
@@ -79,7 +153,10 @@
       class="px-4 py-3 border-b border-amber-200 bg-amber-50 flex items-center justify-between gap-4 flex-shrink-0"
     >
       <div>
-        <div class="text-sm font-semibold text-amber-900">实例校正</div>
+        <div class="flex items-center gap-2">
+          <span class="rounded-full bg-amber-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-900">当前选中</span>
+          <div class="text-sm font-semibold text-amber-900">实例校正</div>
+        </div>
         <div class="text-xs text-amber-700 mt-1">
           当前选中检测框 #{{ selectedDetectionForEditing.id }}，可直接修改类别标签或拖动角点缩放。
         </div>
@@ -291,6 +368,18 @@ const props = defineProps({
     type: Number,
     default: 0
   },
+  twoStageEnabled: {
+    type: Boolean,
+    default: false
+  },
+  normalCount: {
+    type: Number,
+    default: 0
+  },
+  abnormalCount: {
+    type: Number,
+    default: 0
+  },
   detections: {
     type: Array,
     default: () => []
@@ -405,6 +494,16 @@ const selectedDetectionForEditing = computed(() => {
 
   const [selectedId] = Array.from(props.selectedDetectionBoxes)
   return props.detections.find(detection => detection.id === selectedId) || null
+})
+
+const selectedDetectionHeadline = computed(() => {
+  if (!selectedDetectionForEditing.value) {
+    return selectedCount.value > 0 ? `已选择 ${selectedCount.value} 个实例` : '未选中实例'
+  }
+
+  const detection = selectedDetectionForEditing.value
+  const classId = detection.class_id !== undefined ? detection.class_id : 0
+  return `#${detection.id} ${getClassName(classId)}`
 })
 
 const selectedDetectionOverlayStyle = computed(() => {

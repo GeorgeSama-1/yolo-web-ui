@@ -28,6 +28,8 @@ describe('SidebarControls', () => {
         currentImagePath: 'example.jpg',
         currentDetections: [{ id: 1 }],
         detectionCount: 1,
+        classificationModelName: 'insulator_cls_exp001',
+        classificationModelPath: '/models/cls/best.pt',
         normalCount: 1,
         abnormalCount: 0,
         twoStageEnabled: true,
@@ -43,14 +45,21 @@ describe('SidebarControls', () => {
     expect(wrapper.text()).not.toContain('全选')
     expect(wrapper.text()).toContain('选择文件')
     expect(wrapper.text()).toContain('文件夹')
-    expect(wrapper.text()).toContain('切换模型')
+    expect(wrapper.text()).toContain('切换检测模型')
+    expect(wrapper.text()).toContain('流程链路')
+    expect(wrapper.text()).toContain('绝缘子框')
+    expect(wrapper.text()).toContain('normal / abnormal')
+    expect(wrapper.text()).toContain('运行模式')
+    expect(wrapper.text()).toContain('两阶段检测+分类')
+    expect(wrapper.text()).toContain('分类模型')
+    expect(wrapper.text()).toContain('insulator_cls_exp001')
     expect(wrapper.text()).toContain('重新检测当前图片')
     expect(wrapper.text()).toContain('恢复默认阈值')
     expect(wrapper.text()).toContain('默认：confidence 0.80 / IoU 0.30')
     expect(wrapper.text()).toContain('清空所有文件')
     expect(wrapper.text()).toContain('导出当前结果')
     expect(wrapper.text()).toContain('检测状态')
-    expect(wrapper.text()).toContain('检测数量')
+    expect(wrapper.text()).toContain('一阶段数量')
     expect(wrapper.text()).toContain('平均置信度')
     expect(wrapper.text()).toContain('二阶段结果')
     expect(wrapper.text()).toContain('正常数量')

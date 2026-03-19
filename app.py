@@ -24,7 +24,11 @@ from detection_processing import apply_priority_suppression
 from export_naming import build_labelme_json_filename
 from model_bootstrap import pick_current_model_key
 from model_metadata import parse_experiment_name, summarize_model_info
-from two_stage_classification import classify_detections_on_image, merge_two_stage_predictions
+from two_stage_classification import (
+    build_classification_model_info,
+    classify_detections_on_image,
+    merge_two_stage_predictions,
+)
 
 # 添加父目录到 Python 路径，以便导入 config
 sys.path.append(str(Path(__file__).parent.parent))
@@ -422,7 +426,9 @@ def get_models():
 
     return jsonify({
         'models': models_list,
-        'current_model': current_model_key
+        'current_model': current_model_key,
+        'two_stage_enabled': classification_model is not None,
+        'classification_model': build_classification_model_info(CLASSIFICATION_MODEL_PATH, classification_model)
     })
 
 
@@ -446,7 +452,9 @@ def switch_model():
             'model_name': model_info['name'],
             'description': model_info['description'],
             'num_classes': model_info.get('num_classes', 1),
-            'classes': model_info.get('classes', {0: 'insulator'})
+            'classes': model_info.get('classes', {0: 'insulator'}),
+            'two_stage_enabled': classification_model is not None,
+            'classification_model': build_classification_model_info(CLASSIFICATION_MODEL_PATH, classification_model)
         })
     except FileNotFoundError as e:
         return jsonify({'error': str(e)}), 404
@@ -464,7 +472,9 @@ def get_classes():
                 'classes': {},
                 'num_classes': 0,
                 'model_key': current_model_key,
-                'model_name': 'No Model Loaded'
+                'model_name': 'No Model Loaded',
+                'two_stage_enabled': classification_model is not None,
+                'classification_model': build_classification_model_info(CLASSIFICATION_MODEL_PATH, classification_model)
             })
 
         classes = get_classification_classes(classification_model) or get_model_classes(model)
@@ -476,7 +486,8 @@ def get_classes():
             'num_classes': len(classes),
             'model_key': current_model_key,
             'model_name': model_info.get('name', 'Unknown'),
-            'two_stage_enabled': classification_model is not None
+            'two_stage_enabled': classification_model is not None,
+            'classification_model': build_classification_model_info(CLASSIFICATION_MODEL_PATH, classification_model)
         })
     except Exception as e:
         return jsonify({'error': f'获取类别信息失败: {str(e)}'}), 500
@@ -570,6 +581,7 @@ def upload_image():
             'two_stage_enabled': detection_result.get('two_stage_enabled', False),
             'normal_count': detection_result.get('normal_count', 0),
             'abnormal_count': detection_result.get('abnormal_count', 0),
+            'classification_model': build_classification_model_info(CLASSIFICATION_MODEL_PATH, classification_model),
             'model_info': {
                 'key': current_model_key,
                 'name': model_info.get('name', 'Unknown'),
@@ -578,7 +590,8 @@ def upload_image():
                 'num_classes': len(display_classes),
                 'stage1_classes': detection_result['model_classes'],
                 'classification_classes': detection_result.get('classification_classes', {}),
-                'two_stage_enabled': detection_result.get('two_stage_enabled', False)
+                'two_stage_enabled': detection_result.get('two_stage_enabled', False),
+                'classification_model': build_classification_model_info(CLASSIFICATION_MODEL_PATH, classification_model)
             }
         })
 
@@ -623,6 +636,7 @@ def redetect_image():
             'abnormal_count': detection_result.get('abnormal_count', 0),
             'confidence_threshold': detection_result['confidence_threshold'],
             'iou_threshold': detection_result['iou_threshold'],
+            'classification_model': build_classification_model_info(CLASSIFICATION_MODEL_PATH, classification_model),
             'model_info': {
                 'key': current_model_key,
                 'name': model_info.get('name', 'Unknown'),
@@ -631,7 +645,8 @@ def redetect_image():
                 'num_classes': len(display_classes),
                 'stage1_classes': detection_result['model_classes'],
                 'classification_classes': detection_result.get('classification_classes', {}),
-                'two_stage_enabled': detection_result.get('two_stage_enabled', False)
+                'two_stage_enabled': detection_result.get('two_stage_enabled', False),
+                'classification_model': build_classification_model_info(CLASSIFICATION_MODEL_PATH, classification_model)
             }
         })
     except Exception as e:

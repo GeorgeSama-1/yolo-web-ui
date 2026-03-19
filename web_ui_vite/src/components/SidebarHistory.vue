@@ -1,58 +1,22 @@
 <template>
   <div class="h-full flex flex-col">
-    <!-- Header Actions -->
-    <div class="px-3 py-3 bg-slate-800/30 border-b border-cyan-500/20 flex gap-2 flex-shrink-0">
-      <button
-        @click="selectAllHistory"
-        class="flex-1 px-3 py-2 text-xs font-semibold border border-cyan-500/30 rounded-lg bg-slate-700/50 text-cyan-400 cursor-pointer transition-all duration-300 hover:bg-cyan-500/20 hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10 flex items-center justify-center gap-1.5 relative overflow-hidden group"
-        title="全选"
-      >
-        <span class="text-sm relative z-10">☑</span>
-        <span class="relative z-10">全选</span>
-        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
-      </button>
-      <button
-        @click="clearAllHistory"
-        class="flex-1 px-3 py-2 text-xs font-semibold border border-cyan-500/30 rounded-lg bg-slate-700/50 text-cyan-400 cursor-pointer transition-all duration-300 hover:bg-cyan-500/20 hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10 flex items-center justify-center gap-1.5 relative overflow-hidden group"
-        title="清空列表"
-      >
-        <span class="text-sm relative z-10">🗑</span>
-        <span class="relative z-10">清空</span>
-        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
-      </button>
-      <button
-        @click="clearAllMarks"
-        class="flex-1 px-3 py-2 text-xs font-semibold border border-cyan-500/30 rounded-lg bg-slate-700/50 text-cyan-400 cursor-pointer transition-all duration-300 hover:bg-cyan-500/20 hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10 flex items-center justify-center gap-1.5 relative overflow-hidden group"
-        title="清除标记"
-      >
-        <span class="text-sm relative z-10">↶</span>
-        <span class="relative z-10">清除</span>
-        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
-      </button>
-    </div>
-
-    <div class="px-3 py-2 bg-slate-800/20 border-b border-cyan-500/20 flex-shrink-0">
-      <button
-        @click="clearAllHistory"
-        class="w-full px-3 py-2 text-sm font-semibold border border-orange-500/30 rounded-lg bg-orange-950/30 text-orange-400 cursor-pointer transition-all hover:bg-orange-950/50 hover:border-orange-500/50 hover:shadow-lg hover:shadow-orange-500/20 flex items-center justify-center gap-2"
-      >
-        <span class="text-base">🗑️</span>
-        <span>清空所有历史</span>
-      </button>
-    </div>
-
-    <div class="px-3 py-2 bg-slate-800/20 border-b border-cyan-500/20 flex-shrink-0">
-      <button
-        @click="deleteSelectedHistory"
-        class="w-full px-3 py-2 text-sm font-semibold border border-red-500/30 rounded-lg bg-red-950/30 text-red-400 cursor-pointer transition-all hover:bg-red-950/50 hover:border-red-500/50 hover:shadow-lg hover:shadow-red-500/20 flex items-center justify-center gap-2"
-      >
-        <span class="text-base">✕</span>
-        <span>删除选中</span>
-      </button>
+    <div class="px-3 py-3 bg-slate-900/55 border-b border-cyan-500/20 flex-shrink-0">
+      <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-400/70">Browse</div>
+      <div class="mt-1 flex items-center justify-between gap-3">
+        <div>
+          <div class="text-sm font-semibold text-cyan-50">筛选与定位</div>
+          <div class="text-xs text-slate-400 mt-1">
+            先找到要处理的图片，再进入中间工作区继续校正和导出。
+          </div>
+        </div>
+        <div class="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-[11px] text-cyan-300">
+          {{ filteredCount }}/{{ totalCount }}
+        </div>
+      </div>
     </div>
 
     <!-- Filter Bar -->
-    <div class="px-3 py-2.5 bg-slate-800/30 border-b border-cyan-500/20 flex flex-wrap gap-2.5 items-center flex-shrink-0">
+    <div class="px-3 py-3 bg-slate-900/35 border-b border-cyan-500/20 flex flex-wrap gap-2.5 items-center flex-shrink-0">
       <!-- Model Filter -->
       <div class="flex items-center gap-2">
         <label class="text-xs text-cyan-400/80">模型:</label>
@@ -100,13 +64,53 @@
       </div>
     </div>
 
-    <!-- Model Comparison Button -->
-    <div class="px-3 py-2.5 bg-slate-800/20 border-b border-cyan-500/20 text-center flex-shrink-0">
+    <div class="px-3 py-3 bg-slate-900/25 border-b border-cyan-500/20 flex-shrink-0">
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <div>
+          <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400/80">Manage</div>
+          <div class="text-sm font-semibold text-slate-100 mt-1">记录管理</div>
+        </div>
+        <button
+          @click="openComparisonPanel"
+          class="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:from-cyan-400 hover:to-blue-500 hover:shadow-lg hover:shadow-cyan-500/20"
+        >
+          📊 模型对比
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button
+          @click="selectAllHistory"
+          class="px-3 py-2 text-xs font-semibold border border-cyan-500/25 rounded-lg bg-slate-800/60 text-cyan-200 transition-all hover:bg-cyan-500/15 hover:border-cyan-400/40"
+          title="全选"
+        >
+          全选记录
+        </button>
+        <button
+          @click="clearAllHistorySelection"
+          class="px-3 py-2 text-xs font-semibold border border-slate-600 rounded-lg bg-slate-800/60 text-slate-200 transition-all hover:bg-slate-700"
+        >
+          清除选择
+        </button>
+        <button
+          @click="deleteSelectedHistory"
+          class="px-3 py-2 text-xs font-semibold border border-red-500/30 rounded-lg bg-red-950/30 text-red-300 transition-all hover:bg-red-950/50"
+        >
+          删除选中
+        </button>
+        <button
+          @click="clearAllMarks"
+          class="px-3 py-2 text-xs font-semibold border border-amber-500/30 rounded-lg bg-amber-950/30 text-amber-200 transition-all hover:bg-amber-950/50"
+        >
+          清除标记
+        </button>
+      </div>
+
       <button
-        @click="openComparisonPanel"
-        class="w-full px-3 py-2 text-sm font-semibold rounded-lg border-none cursor-pointer bg-gradient-to-r from-cyan-500 to-blue-600 text-white transition-all hover:from-cyan-400 hover:to-blue-500 hover:shadow-lg hover:shadow-cyan-500/30"
+        @click="clearAllHistory"
+        class="mt-2 w-full px-3 py-2 text-sm font-semibold border border-orange-500/30 rounded-lg bg-orange-950/30 text-orange-300 transition-all hover:bg-orange-950/50 hover:border-orange-500/50"
       >
-        📊 模型对比
+        清空所有历史
       </button>
     </div>
 

@@ -4,8 +4,8 @@
       <section class="rounded-2xl border border-cyan-500/20 bg-slate-900/80 p-4 shadow-lg shadow-cyan-950/20">
         <div class="flex items-center justify-between gap-3 mb-3">
           <div>
-            <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-400/80">Model</div>
-            <h3 class="text-sm font-semibold text-cyan-50 mt-1">当前模型</h3>
+            <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-400/80">Models</div>
+            <h3 class="text-sm font-semibold text-cyan-50 mt-1">活动模型</h3>
           </div>
           <span class="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-[10px] text-cyan-300">
             <span class="h-1.5 w-1.5 rounded-full bg-cyan-400"></span>
@@ -13,7 +13,7 @@
           </span>
         </div>
 
-        <label class="block text-xs font-medium text-cyan-200 mb-2">切换模型</label>
+        <label class="block text-xs font-medium text-cyan-200 mb-2">切换检测模型</label>
         <select
           :value="currentModelKey || ''"
           :disabled="isModelSwitching || availableModels.length === 0"
@@ -34,7 +34,8 @@
         </select>
 
         <div class="mt-3 rounded-xl border border-cyan-500/10 bg-slate-900/50 px-3 py-3">
-          <div class="text-sm font-medium text-cyan-50 truncate" :title="currentModelName">
+          <div class="text-xs text-slate-400">检测模型</div>
+          <div class="text-sm font-medium text-cyan-50 truncate mt-1" :title="currentModelName">
             {{ currentModelName }}
           </div>
           <div class="text-xs text-cyan-400/70 mt-1 leading-relaxed" :title="currentModelDescription">
@@ -46,9 +47,105 @@
         </div>
       </section>
 
+      <section class="rounded-2xl border border-fuchsia-500/15 bg-slate-900/80 p-4 shadow-lg shadow-slate-950/20">
+        <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-fuchsia-300/70">Pipeline</div>
+        <h3 class="text-sm font-semibold text-cyan-50 mt-1 mb-3">运行模式</h3>
+
+        <div class="rounded-xl border border-fuchsia-500/10 bg-slate-950/60 px-3 py-3">
+          <div class="text-xs text-slate-400">当前模式</div>
+          <div class="mt-1 text-sm font-semibold text-cyan-50">
+            {{ props.twoStageEnabled ? '两阶段检测+分类' : '一阶段检测' }}
+          </div>
+        </div>
+
+        <div class="mt-3 rounded-xl border border-fuchsia-500/10 bg-slate-950/60 px-3 py-3">
+          <div class="text-xs text-slate-400">分类模型</div>
+          <div class="mt-1 text-sm font-semibold text-cyan-50">
+            {{ props.classificationModelName || '未配置分类模型' }}
+          </div>
+          <div class="mt-1 break-all text-[11px] leading-relaxed text-slate-500">
+            {{ props.classificationModelPath || '当前仅启用一阶段检测流程' }}
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-violet-500/15 bg-slate-900/80 p-4 shadow-lg shadow-slate-950/20">
+        <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-violet-300/70">Workflow</div>
+        <h3 class="text-sm font-semibold text-cyan-50 mt-1 mb-3">流程链路</h3>
+        <div class="space-y-2.5">
+          <div class="rounded-xl border border-cyan-500/10 bg-slate-950/60 px-3 py-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-xs text-slate-400">检测模型</div>
+                <div class="mt-1 text-sm font-semibold text-cyan-50">{{ currentModelName }}</div>
+              </div>
+              <span class="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-[10px] text-cyan-300">active</span>
+            </div>
+          </div>
+
+          <div class="flex justify-center text-[11px] uppercase tracking-[0.26em] text-slate-500">→</div>
+
+          <div class="rounded-xl border border-cyan-500/10 bg-slate-950/60 px-3 py-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-xs text-slate-400">绝缘子框</div>
+                <div class="mt-1 text-sm font-semibold text-cyan-50">一阶段数量 {{ props.detectionCount }}</div>
+              </div>
+              <span class="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-[10px] text-cyan-300">stage 1</span>
+            </div>
+          </div>
+
+          <div class="flex justify-center text-[11px] uppercase tracking-[0.26em] text-slate-500">→</div>
+
+          <div class="rounded-xl border border-fuchsia-500/10 bg-slate-950/60 px-3 py-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-xs text-slate-400">分类模型</div>
+                <div class="mt-1 text-sm font-semibold text-cyan-50">
+                  {{ props.classificationModelName || '未启用分类' }}
+                </div>
+              </div>
+              <span
+                class="rounded-full px-2 py-1 text-[10px]"
+                :class="props.twoStageEnabled ? 'border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-300' : 'border border-slate-700 bg-slate-800 text-slate-400'"
+              >
+                {{ props.twoStageEnabled ? 'stage 2' : 'offline' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="flex justify-center text-[11px] uppercase tracking-[0.26em] text-slate-500">→</div>
+
+          <div class="rounded-xl border border-rose-500/10 bg-slate-950/60 px-3 py-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-xs text-slate-400">normal / abnormal</div>
+                <div class="mt-1 text-sm font-semibold text-cyan-50">
+                  {{ props.twoStageEnabled ? `normal ${props.normalCount} / abnormal ${props.abnormalCount}` : '等待分类输出' }}
+                </div>
+              </div>
+              <span
+                class="rounded-full px-2 py-1 text-[10px]"
+                :class="props.twoStageEnabled ? 'border border-rose-500/20 bg-rose-500/10 text-rose-300' : 'border border-slate-700 bg-slate-800 text-slate-400'"
+              >
+                {{ props.twoStageEnabled ? 'ready' : 'standby' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="rounded-2xl border border-emerald-500/15 bg-slate-900/80 p-4 shadow-lg shadow-slate-950/20">
+        <div class="mb-3 rounded-xl border border-emerald-500/10 bg-slate-950/60 px-3 py-3">
+          <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-300/70">Signal</div>
+          <h4 class="mt-1 text-sm font-semibold text-cyan-50">状态指示</h4>
+          <div class="mt-2 flex items-center gap-2 text-xs text-slate-400">
+            <span class="h-2 w-2 rounded-full" :class="props.twoStageEnabled ? 'bg-fuchsia-400' : 'bg-cyan-400'"></span>
+            <span>{{ props.twoStageEnabled ? '分类链路已接入' : '当前只运行检测链路' }}</span>
+          </div>
+        </div>
         <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-300/70">Status</div>
-        <h3 class="text-sm font-semibold text-cyan-50 mt-1 mb-3">当前状态</h3>
+        <h3 class="text-sm font-semibold text-cyan-50 mt-1 mb-3">当前结果</h3>
         <div class="grid grid-cols-1 gap-2.5">
           <StatCard
             label="检测状态"
@@ -59,7 +156,7 @@
           />
           <div class="grid grid-cols-2 gap-2.5">
             <StatCard
-              label="检测数量"
+              :label="props.twoStageEnabled ? '一阶段数量' : '检测数量'"
               :value="props.detectionCount"
             />
             <StatCard
@@ -89,6 +186,14 @@
       </section>
 
       <section class="rounded-2xl border border-amber-500/20 bg-slate-900/80 p-4">
+        <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-300/70">Console</div>
+        <h3 class="text-sm font-semibold text-cyan-50 mt-1 mb-3">操作台</h3>
+
+        <div class="rounded-xl border border-amber-500/10 bg-slate-950/60 px-3 py-3 mb-4">
+          <div class="text-xs text-slate-400">当前图片</div>
+          <div class="mt-1 text-sm font-semibold text-cyan-50 truncate">{{ currentImageLabel }}</div>
+        </div>
+
         <div class="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-300/70">Current Image</div>
         <div class="flex items-start justify-between gap-3 mt-1 mb-3">
           <div>
@@ -278,6 +383,14 @@ const props = defineProps({
   currentDetections: {
     type: Array,
     default: () => []
+  },
+  classificationModelName: {
+    type: String,
+    default: ''
+  },
+  classificationModelPath: {
+    type: String,
+    default: ''
   },
   statusValue: {
     type: String,

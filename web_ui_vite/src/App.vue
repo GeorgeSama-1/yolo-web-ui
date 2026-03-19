@@ -17,6 +17,9 @@
         :current-image-name="currentImageName"
         :mark-status="currentMarkStatus"
         :insulator-count="currentInsulatorCount"
+        :two-stage-enabled="currentTwoStageEnabled"
+        :normal-count="currentNormalCount"
+        :abnormal-count="currentAbnormalCount"
         :avg-confidence="currentAvgConfidence"
         :detections="currentDetections"
         :selected-detection-boxes="selectedDetectionBoxes"
@@ -41,6 +44,8 @@
         :current-image-path="currentImagePath"
         :current-image-name="currentImageName"
         :current-detections="currentDetections"
+        :classification-model-name="classificationModelName"
+        :classification-model-path="classificationModelPath"
         :status-value="currentStatusValue"
         :detection-count="currentInsulatorCount"
         :normal-count="currentNormalCount"
@@ -108,6 +113,8 @@ const currentStatusValue = ref('-')
 const currentNormalCount = ref(0)
 const currentAbnormalCount = ref(0)
 const currentTwoStageEnabled = ref(false)
+const classificationModelName = ref('')
+const classificationModelPath = ref('')
 const userSelectedHistory = ref(false) // Track if user manually selected a history item
 const isReloadingImage = ref(false) // Track image reload state
 const isRedetecting = ref(false)
@@ -321,14 +328,20 @@ onMounted(async () => {
   createHiddenInputs()
   try {
     const data = await api.getModels()
-    setModels(data.models, data.current_model)
+      setModels(data.models, data.current_model)
+      currentTwoStageEnabled.value = data.two_stage_enabled ?? false
+      classificationModelName.value = data.classification_model?.name || ''
+      classificationModelPath.value = data.classification_model?.path || ''
 
-    // Load class information for the current model
-    try {
-      const classesData = await api.getClasses()
-      if (classesData.success && classesData.classes) {
-        setModelClasses(classesData.classes)
-        console.log('✅ Loaded class information:', classesData.classes)
+      // Load class information for the current model
+      try {
+        const classesData = await api.getClasses()
+        if (classesData.success && classesData.classes) {
+          setModelClasses(classesData.classes)
+          currentTwoStageEnabled.value = classesData.two_stage_enabled ?? currentTwoStageEnabled.value
+          classificationModelName.value = classesData.classification_model?.name || classificationModelName.value
+          classificationModelPath.value = classesData.classification_model?.path || classificationModelPath.value
+          console.log('✅ Loaded class information:', classesData.classes)
         console.log('✅ Number of classes:', Object.keys(classesData.classes).length)
       } else {
         console.warn('⚠️ No class information in response')
@@ -390,6 +403,9 @@ async function handleUploadFiles(files) {
         if (result.model_info?.classes) {
           setModelClasses(result.model_info.classes)
         }
+        currentTwoStageEnabled.value = result.two_stage_enabled ?? currentTwoStageEnabled.value
+        classificationModelName.value = result.classification_model?.name || classificationModelName.value
+        classificationModelPath.value = result.classification_model?.path || classificationModelPath.value
 
         // Update file item status
         fileItem.result = result
@@ -444,12 +460,18 @@ async function handleModelChange(modelKey) {
     if (data.success) {
       setCurrentModel(modelKey)
       showToast('success', '模型切换成功', `当前使用: ${data.model_name}`)
+      currentTwoStageEnabled.value = data.two_stage_enabled ?? currentTwoStageEnabled.value
+      classificationModelName.value = data.classification_model?.name || classificationModelName.value
+      classificationModelPath.value = data.classification_model?.path || classificationModelPath.value
 
       // Reload class information for the new model
       try {
         const classesData = await api.getClasses()
         if (classesData.success && classesData.classes) {
           setModelClasses(classesData.classes)
+          currentTwoStageEnabled.value = classesData.two_stage_enabled ?? currentTwoStageEnabled.value
+          classificationModelName.value = classesData.classification_model?.name || classificationModelName.value
+          classificationModelPath.value = classesData.classification_model?.path || classificationModelPath.value
           console.log('Updated class information:', classesData.classes)
         }
       } catch (error) {
@@ -735,6 +757,8 @@ async function handleRedetectCurrent({ confidenceThreshold, iouThreshold }) {
     if (result.model_info?.classes) {
       setModelClasses(result.model_info.classes)
     }
+    classificationModelName.value = result.classification_model?.name || classificationModelName.value
+    classificationModelPath.value = result.classification_model?.path || classificationModelPath.value
 
     updateCurrentDetections(result.detections || [])
     clearDetectionSelection()

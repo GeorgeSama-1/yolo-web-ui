@@ -82,6 +82,33 @@ def classify_detections_on_image(
     return results
 
 
+def build_classification_model_info(classification_model_path, classification_model_obj) -> dict[str, Any]:
+    configured = bool(classification_model_path)
+    model_path = str(classification_model_path) if classification_model_path else None
+    model_name = None
+
+    if configured:
+        path_obj = Path(classification_model_path)
+        model_name = path_obj.parent.parent.name if path_obj.parent.name == 'weights' else path_obj.stem
+
+    classes = {}
+    if classification_model_obj is not None:
+        try:
+            if hasattr(classification_model_obj, 'names') and classification_model_obj.names:
+                classes = classification_model_obj.names
+        except Exception:
+            classes = {}
+
+    return {
+        'configured': configured,
+        'loaded': classification_model_obj is not None,
+        'name': model_name or '未配置分类模型',
+        'path': model_path,
+        'classes': classes,
+        'num_classes': len(classes),
+    }
+
+
 def merge_two_stage_predictions(
     detections: list[dict[str, Any]],
     classifications: list[dict[str, Any]],

@@ -1,8 +1,8 @@
 <template>
   <!-- Root container: Full screen, flex column, overflow hidden -->
-  <div class="h-screen w-screen flex flex-col overflow-hidden m-0 p-0 bg-slate-900">
+  <div class="h-screen w-screen flex flex-col overflow-hidden m-0 p-0 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_34%),linear-gradient(180deg,_#040816,_#0b1220_38%,_#020617)]">
     <!-- Header: Fixed height with tech-style design -->
-    <header class="h-14 flex-shrink-0 bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 flex items-center justify-between px-6 border-b border-cyan-500/30 relative overflow-hidden">
+    <header class="h-14 flex-shrink-0 bg-[linear-gradient(90deg,_rgba(2,6,23,0.98),_rgba(8,47,73,0.92),_rgba(2,6,23,0.98))] flex items-center justify-between px-6 border-b border-cyan-500/30 relative overflow-hidden shadow-[0_0_30px_rgba(8,145,178,0.15)]">
       <!-- Decorative tech elements -->
       <div class="absolute inset-0 opacity-10">
         <div class="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-cyan-400 to-transparent"></div>
@@ -38,11 +38,11 @@
     <main class="flex-1 flex overflow-hidden relative">
 
       <!-- Left Panel: Fixed width (64 * 4 = 256px) -->
-      <aside class="w-64 flex-shrink-0 bg-slate-800/50 backdrop-blur border-r border-cyan-500/20 flex flex-col relative z-10">
+      <aside class="w-64 flex-shrink-0 bg-slate-900/70 backdrop-blur border-r border-cyan-500/20 flex flex-col relative z-10 shadow-[inset_-1px_0_0_rgba(34,211,238,0.08)]">
         <!-- Panel Title with tech style -->
         <div class="px-4 py-3 text-sm font-semibold text-cyan-400 border-b border-cyan-500/20 flex-shrink-0 bg-gradient-to-r from-cyan-950/50 to-transparent flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-          <span>历史记录</span>
+          <span>记录中心</span>
         </div>
 
         <!-- Panel Content Slot -->
@@ -52,7 +52,7 @@
       </aside>
 
       <!-- Center Panel: Fills remaining space (flex-1 + min-w-0) -->
-      <section class="flex-1 min-w-0 bg-slate-900/30 flex flex-col relative overflow-hidden z-10">
+      <section class="flex-1 min-w-0 bg-slate-950/20 flex flex-col relative overflow-hidden z-10">
         <!-- Corner decorations -->
         <div class="absolute top-0 left-0 w-16 h-16 border-t-2 border-l-2 border-cyan-500/30 rounded-tl-lg"></div>
         <div class="absolute top-0 right-0 w-16 h-16 border-t-2 border-r-2 border-cyan-500/30 rounded-tr-lg"></div>
@@ -64,11 +64,11 @@
       </section>
 
       <!-- Right Panel: Fixed width (80 * 4 = 320px) -->
-      <aside class="w-80 flex-shrink-0 bg-slate-800/50 backdrop-blur border-l border-cyan-500/20 flex flex-col overflow-hidden relative z-10">
+      <aside class="w-80 flex-shrink-0 bg-slate-900/72 backdrop-blur border-l border-cyan-500/20 flex flex-col overflow-hidden relative z-10 shadow-[inset_1px_0_0_rgba(34,211,238,0.08)]">
         <!-- Panel Title with tech style -->
         <div class="px-4 py-3 text-sm font-semibold text-cyan-400 border-b border-cyan-500/20 flex-shrink-0 bg-gradient-to-r from-cyan-950/50 to-transparent flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-          <span>批量操作</span>
+          <span>任务面板</span>
         </div>
 
         <!-- Panel Content Slot -->

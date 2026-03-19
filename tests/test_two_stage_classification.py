@@ -1,9 +1,21 @@
 import unittest
 
-from two_stage_classification import merge_two_stage_predictions
+from two_stage_classification import build_classification_model_info, merge_two_stage_predictions
 
 
 class TwoStageClassificationTests(unittest.TestCase):
+    def test_build_classification_model_info_exposes_runtime_status(self):
+        info = build_classification_model_info(
+            classification_model_path='/tmp/experiments_cls/insulator_cls_exp001/weights/best.pt',
+            classification_model_obj=None,
+        )
+
+        self.assertTrue(info['configured'])
+        self.assertFalse(info['loaded'])
+        self.assertEqual(info['name'], 'insulator_cls_exp001')
+        self.assertEqual(info['path'], '/tmp/experiments_cls/insulator_cls_exp001/weights/best.pt')
+        self.assertEqual(info['classes'], {})
+
     def test_merge_two_stage_predictions_keeps_stage1_bbox_and_adds_classification_fields(self):
         detections = [
             {
